@@ -1,0 +1,16 @@
+
+(begin
+    (def-command move_to (:params (?actor actor_id) (?node node_id)))
+    (def-command move_rand (:params (?actor actor_id)))
+    (def-command pick_up_resource (:params (?actor actor_id) (?resource resource_id)))
+    (def-command drop_resource (:params (?actor actor_id) (?resource resource_id)))
+    (def-command drop_all_resources (:params (?actor actor_id)))
+    (def-command dig_at (:params (?actor actor_id) (?mine mine_id)))
+    (def-command start_site (:params (?actor actor_id) (?task task_id)))
+    (def-command construct_at (:params (?actor actor_id) (?site site_id)))
+    (def-command deposit_resources (:params (?actor actor_id) (?site site_id) (resource_id)))
+    (def-command cancel_action (:params (actor actor_id)))
+    (def-command start_looking (:params (actor actor_id)))
+    (def-command start_sending (:params (actor actor_id)))
+    (def-command start_receiving (:params (actor actor_id)))
+)

@@ -27,3 +27,8 @@ sim.agents.append(agent)
   
 ## CraftBots Wiki
 Further information is available on the [CraftBots Wiki here](https://github.com/strathclyde-artificial-intelligence/craft-bots/wiki).
+
+## OMPAS Binding: generation of protobuf files:
+```bash
+python3 -m grpc_tools.protoc -I ../grpc --python_out=. --pyi_out=. --grpc_python_out=. -I. ../grpc/platform_interface.proto
+``
