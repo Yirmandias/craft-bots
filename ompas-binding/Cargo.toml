@@ -1,0 +1,32 @@
+[package]
+name = "ompas-binding"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ompas-middleware = {path = "../../middleware"}
+sompas-modules = {path = "../../scheme/modules"}
+sompas-structs = {path = "../../scheme/structs"}
+sompas-core= {path = "../../scheme/core"}
+sompas-repl = {path = "../../scheme/repl"}
+# ompas-utils = {path = "../utils"}
+sompas-language= {path = "../../scheme/language"}
+# sompas-macros = {path = "../scheme/macros"}
+ompas-rae-core = {path = "../../rae/core"}
+ompas-rae-structs = {path = "../../rae/structs"}
+ompas-rae-interface = {path = "../../rae/interface"}
+# aries_planning = {path = "../aries/planning"}
+im = "15.0.0"
+structopt = { version = "0.3", default-features = false }
+tokio = { version = "1.17.0", features = ["full", "time"] }
+async-trait = "0.1.51"
+macro_rules_attribute = "0.0.2"
+tonic = "0.8"
+tokio-stream = { default-features = false, version = "0.1" }
+map-macro = "0.2.4"
+
+[[bin]]
+name = "craft-bots-ompas"
+path = "src/bin/main.rs"
