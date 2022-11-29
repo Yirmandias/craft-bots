@@ -1,8 +1,0 @@
-Traceback (most recent call last):
-  File "/home/jeremy/CLionProjects/ompas/craft-bots/main.py", line 24, in <module>
-    gui.start_window()
-  File "/home/jeremy/CLionProjects/ompas/craft-bots/gui/main_window.py", line 202, in start_window
-    dpg.render_dearpygui_frame()
-  File "/home/jeremy/.local/lib/python3.10/site-packages/dearpygui/dearpygui.py", line 8877, in render_dearpygui_frame
-    return internal_dpg.render_dearpygui_frame(**kwargs)
-KeyboardInterrupt

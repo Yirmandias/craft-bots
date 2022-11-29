@@ -76,7 +76,8 @@ pub async fn lisp_interpreter(log: Option<PathBuf>, godot: bool, rae_log: bool) 
                 ),
                 LogClient::new(PLATFORM_CLIENT, LOG_TOPIC_PLATFORM).await,
                 DEFAULT_CRAFT_BOTS_PATH.parse().unwrap(),
-            ),
+            )
+            .await,
             log.clone(),
             rae_log,
         )

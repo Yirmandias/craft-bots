@@ -3,6 +3,8 @@ from agents.rule_based_agent import RBAgent
 from agents.ompas import OMPASAgent
 from craftbots.simulation import Simulation
 from gui.main_window import CraftBotsGUI
+from platform_interface_pb2_grpc import *
+from platform_interface_pb2 import *
 
 if __name__ == '__main__':
 
@@ -21,5 +23,7 @@ if __name__ == '__main__':
 
     # GUI
     gui = CraftBotsGUI(sim)
+    gui.simulation.reset_simulation()
+
     gui.start_window()
 

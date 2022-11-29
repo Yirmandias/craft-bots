@@ -1,4 +1,4 @@
-from api import agent_api
+from api.agent_api import AgentAPI
 from api.command import Command
 from craftbots.entities.actor import Actor
 from craftbots.log_manager import Logger
