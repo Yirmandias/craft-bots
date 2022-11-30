@@ -770,8 +770,9 @@ class CraftBotsServicer(platform_interfaceServicer):
     def SendCommands(self, request_iterator, context):
 
         ompas_platform_command_id_map = dict()
-        
+        ongoing_commands = []
         api = self.api
+        last_tick = -1
         for command_request in request_iterator:
             # treating new commands
             command_request: CommandRequest
@@ -843,18 +844,41 @@ class CraftBotsServicer(platform_interfaceServicer):
                     else:
                         yield CommandResponse(accepted=CommandAccepted(command_id))
                         ompas_platform_command_id_map[r] = command_id
-                                
-
-                    
-                        
+                        ongoing_commands.append(r)
+            # if a cancel request has been sent                
             elif command_request.cancel != None:
                 pass
-            pass
+            
+            world_info = api.get_world_info()
+            world_info: dict
+            if last_tick != world_info['tick']:
+                commands = world_info['commands']
+                for command_id in ongoing_commands:
+                    command = commands[command_id]
+                    command: Command
+                    ompas_id = ompas_platform_command_id_map.get(command_id)
+                    match command.state:
+                        case Command.PENDING:
+                            pass
+                        case Command.ACTIVE:
+                            yield CommandResponse(progress=CommandProgress(ompas_id, 0.0))
+                        case Command.REJECTED:
+                            ongoing_commands.remove(command_id)
+                            yield CommandResponse(progress=CommandRejected(ompas_id))
+                        case Command.PREEMPTING:
+                            pass
+                        case Command.ABORTED:
+                            ongoing_commands.remove(command_id)
+                            yield CommandResponse(result = CommandResult(ompas_id, False))
+                        case Command.SUCCEEDED:
+                            ongoing_commands.remove(command_id)
+                            yield CommandResponse(result = CommandResult(ompas_id, True))
+                        case Command.PREEMPTED:
+                            ongoing_commands.remove(command_id)
+                            yield CommandResponse(cancelled=CommandCancelled(ompas_id, True))
 
-
-        while True:
-            if False:
-                yield CommandResponse()
+                    
+        
 
 """
     def GetUpdates(self, request: InitGetUpdate, context):
