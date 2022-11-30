@@ -24,6 +24,7 @@ if __name__ == '__main__':
     # GUI
     gui = CraftBotsGUI(sim)
     gui.simulation.reset_simulation()
+    gui.simulation.start_simulation()
 
     gui.start_window()
 
