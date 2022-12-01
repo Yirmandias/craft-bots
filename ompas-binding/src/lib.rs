@@ -107,8 +107,8 @@ impl PlatformDescriptor for PlatformCraftBots {
             InnerPlatformConfig::None => self.config.clone(),
         };
 
-        let f1 = File::create("craft-bots.txt").expect("couldn't create file");
-        let f2 = File::create("craft-bots.txt").expect("couldn't create file");
+        let f1 = File::create("craft-bots-out").expect("couldn't create file");
+        let f2 = File::create("craft-bots-err").expect("couldn't create file");
 
         let path = config
             .path
@@ -124,8 +124,8 @@ impl PlatformDescriptor for PlatformCraftBots {
             .current_dir(path)
             .args(&["main.py"])
             .stdin(Stdio::null())
-            .stdout(unsafe { Stdio::from_raw_fd(f1.into_raw_fd()) })
-            .stderr(unsafe { Stdio::from_raw_fd(f2.into_raw_fd()) })
+            //.stdout(unsafe { Stdio::from_raw_fd(f1.into_raw_fd()) })
+            //.stderr(unsafe { Stdio::from_raw_fd(f2.into_raw_fd()) })
             .spawn()
             .expect("failed to execute process");
 

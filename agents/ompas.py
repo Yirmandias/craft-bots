@@ -14,6 +14,8 @@ import threading
 import concurrent.futures
 import time
 import traceback
+from threading import Lock
+from threading import Thread
 
 PORT = 8257
 TICK = "tick"
@@ -80,6 +82,8 @@ COMMAND_ID = "command.id"
 COMMAND_FUNCTION = "command.function"
 COMMAND_RESULT = "command.result"
 COMMAND_STATE ="command.state"
+
+SLEEP_TIME = 0.01
 
 
 
@@ -705,21 +709,214 @@ def commands_state_variables(world_info: dict) -> list[StateVariable]:
     return state_variables
 
 
+class CurrentCommandCollection:
+    def __init__(self):
+        self.list = []
+        self.list: list[int]
+        self.lock = Lock()
+        self.platform_id_to_ompas_id = dict()
+    
+    def add(self, ompas_id: int, craft_bots_id: int):
+        self.lock.acquire()
+        self.list.append(craft_bots_id)
+        self.platform_id_to_ompas_id[craft_bots_id] = ompas_id
+        self.lock.release()
+
+    def get_ompas_id(self, craft_bots_id: int) -> int:
+        self.lock.acquire()
+        value = self.platform_id_to_ompas_id[craft_bots_id]
+        self.lock.release()
+        return value
+    
+    def get_currents(self) -> list[int]:
+        self.lock.acquire()
+        value = self.list.copy()
+        self.lock.release()
+        return value
+
+    def remove(self, craft_bots_id: int):
+        self.lock.acquire()
+        self.list.remove(craft_bots_id)
+        del self.platform_id_to_ompas_id[craft_bots_id]
+        self.lock.release()
+
+class CommandResponseCollection:
+    def __init__(self):
+        self.list = []
+        self.list: list[CommandResponse]
+        self.lock = Lock()
+    
+    def push(self, response: CommandResponse):
+        self.lock.acquire()
+        self.list.append(response)
+        self.lock.release()
+
+    def pop(self) -> CommandResponse | None:
+        self.lock.acquire()
+        if len(self.list) > 0:
+            value = self.list.pop()
+        else:
+            value = None
+        self.lock.release()
+        return value
+
+def handle_incoming_commands(api: AgentAPI, request_iterator, command_responses: CommandResponseCollection, current_commands: CurrentCommandCollection):
+    print("start new commands")
+    try:
+        while True:
+            for command_request in request_iterator:
+                # treating new commands
+                command_request: CommandRequest
+                if command_request.execution != None:
+                    #print(f'new execution request received: {command_request.execution}')
+                    execution: CommandExecutionRequest
+                    execution = command_request.execution
+                    command_id = execution.command_id
+                    command = execution.arguments[0]
+                    actor = execution.arguments[1].atom.symbol
+                    actor_id = int(actor.removeprefix("actor_"))
+                    other = execution.arguments[2:]
+                    #print(f'params = {params}')
+                    function_id = function_id_from_str(command.atom.symbol)
+                    if function_id == -1:
+                        # the command name is no match with the available commands
+                        command_responses.push(CommandResponse(rejected=CommandRejected(command_id)))
+                    else:
+                        # if the command corresponds to an available command, then we can analyse the arguments and maybe execute it
+                        r = -1
+                        match function_id:
+                            case Command.MOVE_TO:
+                                node_id = other[0].atom.int
+                                r = api.move_to(actor_id, node_id)
+                            case Command.MOVE_RAND:
+                                print(f'actor_id = {actor_id}')
+                                r = api.move_rand(actor_id)
+                            case Command.PICK_UP_RESOURCE:
+                                actor_id = other[0].atom.int
+                                resource_id = other[1].atom.int
+                                r = api.pick_up_resource(actor_id, resource_id)
+                            case Command.DROP_RESOURCE:
+                                actor_id = other[0].atom.int
+                                resource_id = other[1].atom.int
+                                r = api.drop_resource(actor_id, resource_id)
+                            case Command.DROP_ALL_RESOURCES:
+                                actor_id = other[0].atom.int
+                                r = api.drop_all_resources(actor_id)
+                            case Command.DIG_AT:
+                                actor_id = other[0].atom.int
+                                mine_id = other[1].atom.int
+                                r = api.dig_at(actor_id, mine_id)
+                            case Command.START_SITE:
+                                actor_id = other[0].atom.int
+                                task_id = other[1].atom.int
+                                r = api.start_site(actor_id, task_id)
+                            case Command.CONSTRUCT_AT:
+                                actor_id = other[0].atom.int
+                                site_id = other[1].atom.int
+                                r = api.construct_at(actor_id, site_id)
+                            case Command.DEPOSIT_RESOURCES:
+                                actor_id = other[0].atom.int
+                                site_id = other[1].atom.int
+                                resource_id = other[2].atom.int
+                                r = api.deposit_resources(actor_id, site_id)
+                            case Command.CANCEL_ACTION:
+                                actor_id = other[0].atom.int
+                                r = api.cancel_action(actor_id)
+                            case Command.START_LOOKING:
+                                actor_id = other[0].atom.int
+                                r = api.start_looking(actor_id)
+                            case Command.START_SENDING:
+                                actor_id = other[0].atom.int
+                                message = other[1].atom.symbol
+                                r = api.start_sending(actor_id, message)
+                            case Command.START_RECEIVING:
+                                actor_id = other[0].atom.int
+                                r = api.start_receiving(actor_id)
+                        if r == -1:
+                            # command has not been accepted by API
+                            print('rejected')
+                            command_responses.push(CommandResponse(rejected=CommandRejected(command_id= command_id)))
+                        else:
+                            command_responses.push(CommandResponse(accepted=CommandAccepted(command_id = command_id)))
+                            current_commands.add(command_id, r)
+                # if a cancel request has been sent                
+                elif command_request.cancel != None:
+                    pass
+    except Exception:
+        print(traceback.format_exc())
+    
+    print("end new commands")
+
+def handle_current_commands(api: AgentAPI, command_responses: CommandResponseCollection, current_commands: CurrentCommandCollection):
+    print("start current commands")
+    last_tick = -1
+    try:
+        while True:
+            world_info = api.get_world_info()
+            world_info: dict
+            new_tick = world_info['tick']
+            if last_tick < new_tick:
+                last_tick = new_tick
+                commands = world_info['commands']
+                for command_id in current_commands.get_currents():
+                    command = commands[command_id]
+                    command: Command
+                    ompas_id = current_commands.get_ompas_id(command_id)
+                    match command.state:
+                        case Command.PENDING:
+                            pass
+                        case Command.ACTIVE:
+                            command_responses.push(CommandResponse(progress=CommandProgress(ompas_id, 0.0)))
+                        case Command.REJECTED:
+                            current_commands.remove(command_id)
+                            command_responses.push( CommandResponse(progress=CommandRejected(ompas_id)))
+                        case Command.PREEMPTING:
+                            pass
+                        case Command.ABORTED:
+                            current_commands.remove(command_id)
+                            command_responses.push(CommandResponse(result = CommandResult(ompas_id, False)))
+                        case Command.SUCCEEDED:
+                            current_commands.remove(command_id)
+                            command_responses.push(CommandResponse(result = CommandResult(ompas_id, True)))
+                        case Command.PREEMPTED:
+                            current_commands.remove(command_id)
+                            command_responses.push(CommandResponse(cancelled=CommandCancelled(ompas_id, True)))
+    except Exception:
+        print(traceback.format_exc())
+    
+    print("end current commands")
+
+
+TYPE_AGENT = "agent"
+
 
 class CraftBotsServicer(platform_interfaceServicer):
     def __init__(self, api: AgentAPI):
         self.api = api
 
     def GetUpdates(self, request, context):
+        print('start updates')
+
         api = self.api
-        tick=0
-        while True:
-            try:
+        last_tick=0
+
+        list_actors = []
+        list_nodes= []
+        list_edges = []
+        try:
+            while True:
                 world_info = api.get_world_info()
                 if world_info != None:
                     new_tick = world_info['tick']
-                    if tick != new_tick:
-                        tick = new_tick
+                    if last_tick < new_tick:
+                        last_tick = new_tick
+
+                        current_actors = world_info['actors'].keys()
+                        for actor in current_actors:
+                            if not list_actors.__contains__(actor):
+                                yield PlatformUpdate(event = Event(instance=Instance(type=TYPE_AGENT, object = 'actor_'+ str(actor))))
+
+                        list_actors = current_actors
 
                         state = StateUpdate()
                         # Current simulation tick
@@ -751,154 +948,34 @@ class CraftBotsServicer(platform_interfaceServicer):
                         yield PlatformUpdate(state = state)
                     else:
                         pass
-            except Exception:
-                print(traceback.format_exc())
-
-        
-        #Updating actors info:
-        
-        #for actor in self.world_info["actors"]:
-        #    state.state_variables.append(StateVariable(type = StateVariableType(), state_function=ACTOR_ID, parameters=actor["id"], value = actor["id"]))
-        #    pass
-        # update = PlatformUpdate(state)
-        #update = PlatformUpdate()    
-        #yield update
-        #context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        #context.set_details('Method not implemented!')
-        #raise NotImplementedError('Method not implemented!')
+        except Exception:
+            print(traceback.format_exc())
+        print('end updates')
 
     def SendCommands(self, request_iterator, context):
+        print('start send commands')
 
-        ompas_platform_command_id_map = dict()
-        ongoing_commands = []
-        api = self.api
-        last_tick = -1
-        for command_request in request_iterator:
-            # treating new commands
-            command_request: CommandRequest
-            if command_request.execution != None:
-                execution: CommandExecutionRequest
-                execution = command_request.execution
-                command_id = execution.command_id
-                command = execution.arguments[0]
-                params = execution.arguments[1:]
-                function_id = function_id_from_str(command.atom.symbol)
-                if function_id == -1:
-                    # the command name is no match with the available commands
-                    yield CommandResponse(rejected=CommandRejected(command_id))
+        current_commands= CurrentCommandCollection()
+        command_responses = CommandResponseCollection()
+
+        thread_incoming = Thread(target=handle_incoming_commands, args=(self.api, request_iterator, command_responses, current_commands))
+        thread_current = Thread(target=handle_current_commands, args=(self.api, command_responses, current_commands))
+        
+        thread_incoming.start()
+        thread_current.start()
+
+
+        while True:
+            while True:
+                response = command_responses.pop()
+                if response != None:
+                    yield response
                 else:
-                    # if the command corresponds to an available command, then we can analyse the arguments and maybe execute it
-                    r = -1
-                    match function_id:
-                        case Command.MOVE_TO:
-                            actor_id = params[0].atom.int
-                            node_id = params[1].atom.int
-                            r = api.move_to(actor_id, node_id)
-                        case Command.MOVE_RAND:
-                            actor_id = params[0].atom.int
-                            r = api.move_rand(actor_id)
-                        case Command.PICK_UP_RESOURCE:
-                            actor_id = params[0].atom.int
-                            resource_id = params[1].atom.int
-                            r = api.pick_up_resource(actor_id, resource_id)
-                        case Command.DROP_RESOURCE:
-                            actor_id = params[0].atom.int
-                            resource_id = params[1].atom.int
-                            r = api.drop_resource(actor_id, resource_id)
-                        case Command.DROP_ALL_RESOURCES:
-                            actor_id = params[0].atom.int
-                            r = api.drop_all_resources(actor_id)
-                        case Command.DIG_AT:
-                            actor_id = params[0].atom.int
-                            mine_id = params[1].atom.int
-                            r = api.dig_at(actor_id, mine_id)
-                        case Command.START_SITE:
-                            actor_id = params[0].atom.int
-                            task_id = params[1].atom.int
-                            r = api.start_site(actor_id, task_id)
-                        case Command.CONSTRUCT_AT:
-                            actor_id = params[0].atom.int
-                            site_id = params[1].atom.int
-                            r = api.construct_at(actor_id, site_id)
-                        case Command.DEPOSIT_RESOURCES:
-                            actor_id = params[0].atom.int
-                            site_id = params[1].atom.int
-                            resource_id = params[2].atom.int
-                            r = api.deposit_resources(actor_id, site_id)
-                        case Command.CANCEL_ACTION:
-                            actor_id = params[0].atom.int
-                            r = api.cancel_action(actor_id)
-                        case Command.START_LOOKING:
-                            actor_id = params[0].atom.int
-                            r = api.start_looking(actor_id)
-                        case Command.START_SENDING:
-                            actor_id = params[0].atom.int
-                            message = params[1].atom.symbol
-                            r = api.start_sending(actor_id, message)
-                        case Command.START_RECEIVING:
-                            actor_id = params[0].atom.int
-                            r = api.start_receiving(actor_id)
-                    if r == -1:
-                        # command has not been accepted by API
-                        yield CommandResponse(rejected=CommandRejected(command_id))
-                    else:
-                        yield CommandResponse(accepted=CommandAccepted(command_id))
-                        ompas_platform_command_id_map[r] = command_id
-                        ongoing_commands.append(r)
-            # if a cancel request has been sent                
-            elif command_request.cancel != None:
-                pass
+                    break
             
-            world_info = api.get_world_info()
-            world_info: dict
-            if last_tick != world_info['tick']:
-                commands = world_info['commands']
-                for command_id in ongoing_commands:
-                    command = commands[command_id]
-                    command: Command
-                    ompas_id = ompas_platform_command_id_map.get(command_id)
-                    match command.state:
-                        case Command.PENDING:
-                            pass
-                        case Command.ACTIVE:
-                            yield CommandResponse(progress=CommandProgress(ompas_id, 0.0))
-                        case Command.REJECTED:
-                            ongoing_commands.remove(command_id)
-                            yield CommandResponse(progress=CommandRejected(ompas_id))
-                        case Command.PREEMPTING:
-                            pass
-                        case Command.ABORTED:
-                            ongoing_commands.remove(command_id)
-                            yield CommandResponse(result = CommandResult(ompas_id, False))
-                        case Command.SUCCEEDED:
-                            ongoing_commands.remove(command_id)
-                            yield CommandResponse(result = CommandResult(ompas_id, True))
-                        case Command.PREEMPTED:
-                            ongoing_commands.remove(command_id)
-                            yield CommandResponse(cancelled=CommandCancelled(ompas_id, True))
-
-                    
+            time.sleep(SLEEP_TIME)
         
-
-"""
-    def GetUpdates(self, request: InitGetUpdate, context):
-        
-        # See how to await updates
-        self.world_info : dict
-        while True :
-            state = StateUpdate()
-            
-            #Updating actors info:
-            
-            for actor in self.world_info["actors"]:
-                state.state_variables.append(StateVariable(type = StateVariableType(), state_function=ACTOR_ID, parameters=actor["id"], value = actor["id"]))
-                pass
-            yield state
-"""        
-        
-        #context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        #context.set_details('Method not implemented!')
-        #raise NotImplementedError('Method not implemented!')
+        print('end commands')
 
 class OMPASAgent(Agent):
     def __init__(self):
@@ -913,5 +990,4 @@ class OMPASAgent(Agent):
         print(f"port: {port}")
         self.platform_interface_server.start()
         while True:
-            pass
-            #print(f'world_info = {self.world_info}')
+            time.sleep(1)
