@@ -20,7 +20,7 @@
     (def-state-function actor.node (:params (?id int)) (:result state))
     (def-state-function actor.state (:params (?id int)) (:result state))
     (def-state-function actor.progress (:params (?id int)) (:result int))
-    (def-state-function actor.target (:params (?id int)) (:result target_id))
+    (def-state-function actor.target (:params (?id int)) (:result (list int)))
     (def-state-function actor.target (:params (?id int)) (:result (list ressource_id)))
 
     ;nodes state function

@@ -259,17 +259,21 @@ def actors_state_variables(world_info : dict) -> list[StateVariable]:
             (type = DYNAMIC,
             state_function=ACTOR_PROGRESS,
             parameters=[Atom(int = actor_id)],
-            value = Expression(atom=Atom(int= actor['progress']))))
+            value = Expression(atom=Atom(float = actor['progress']))))
+        
         # target of the actor
-        atom_target= Atom(boolean = False)
-        if actor['target'] != None:
-            atom_target = Atom(int = actor['target'])
+        value= Expression(atom = Atom(boolean = False))
+        target = actor['target']
+        if isinstance(target, tuple):
+            value = Expression(list = [Expression(atom = Atom(int = target[0])), Expression(atom = Atom(int = target[1]))])
+        elif isinstance(target, int):
+            value = Expression(list = [Expression(atom= Atom(int = target))])
 
         state_variables.append(StateVariable
             (type = DYNAMIC,
             state_function=ACTOR_TARGET,
             parameters=[Atom(int = actor_id)],
-            value = Expression(atom=atom_target)))
+            value = value))
         # resources of the actor
         resources = []
         for r in actor['resources']:
@@ -789,7 +793,7 @@ def handle_incoming_commands(api: AgentAPI, request_iterator, command_responses:
                                 node_id = other[0].atom.int
                                 r = api.move_to(actor_id, node_id)
                             case Command.MOVE_RAND:
-                                print(f'actor_id = {actor_id}')
+                                #print(f'actor_id = {actor_id}')
                                 r = api.move_rand(actor_id)
                             case Command.PICK_UP_RESOURCE:
                                 actor_id = other[0].atom.int
@@ -858,29 +862,32 @@ def handle_current_commands(api: AgentAPI, command_responses: CommandResponseCol
             if last_tick < new_tick:
                 last_tick = new_tick
                 commands = world_info['commands']
-                for command_id in current_commands.get_currents():
-                    command = commands[command_id]
-                    command: Command
+                current = current_commands.get_currents()
+                # print(current)
+                for command_id in current:
+                    command = commands[command_id]                      
+                    print(command)
+                    command: dict
                     ompas_id = current_commands.get_ompas_id(command_id)
-                    match command.state:
+                    match command["state"]:
                         case Command.PENDING:
                             pass
                         case Command.ACTIVE:
-                            command_responses.push(CommandResponse(progress=CommandProgress(ompas_id, 0.0)))
+                            command_responses.push(CommandResponse(progress=CommandProgress(command_id = ompas_id, progress = 0.0)))
                         case Command.REJECTED:
                             current_commands.remove(command_id)
-                            command_responses.push( CommandResponse(progress=CommandRejected(ompas_id)))
+                            command_responses.push( CommandResponse(progress=CommandRejected(command_id = ompas_id)))
                         case Command.PREEMPTING:
                             pass
                         case Command.ABORTED:
                             current_commands.remove(command_id)
-                            command_responses.push(CommandResponse(result = CommandResult(ompas_id, False)))
+                            command_responses.push(CommandResponse(result = CommandResult(command_id = ompas_id, result = False)))
                         case Command.SUCCEEDED:
                             current_commands.remove(command_id)
-                            command_responses.push(CommandResponse(result = CommandResult(ompas_id, True)))
+                            command_responses.push(CommandResponse(result = CommandResult(command_id = ompas_id, result = True)))
                         case Command.PREEMPTED:
                             current_commands.remove(command_id)
-                            command_responses.push(CommandResponse(cancelled=CommandCancelled(ompas_id, True)))
+                            command_responses.push(CommandResponse(cancelled=CommandCancelled(command_id = ompas_id, result = True)))
     except Exception:
         print(traceback.format_exc())
     

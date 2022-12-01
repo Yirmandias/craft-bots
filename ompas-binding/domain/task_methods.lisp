@@ -9,4 +9,5 @@
                     (begin
                         (define handles (mapf (lambda (agent) (async (move_rand agent))) agents))
                         (mapf await handles)
+                        (print "ok")
                     ))))))
