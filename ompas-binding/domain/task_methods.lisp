@@ -4,10 +4,10 @@
         (:task rand)
         (:body
             (begin
-                (define agents (instances agent))
+                (define actors (instances actor))
                 (loop
                     (begin
-                        (define handles (mapf (lambda (agent) (async (move_rand agent))) agents))
+                        (define handles (mapf (lambda (actor) (async (move_rand actor))) actors))
                         (mapf await handles)
-                        (print "ok")
+                        ;(print "ok")
                     ))))))
