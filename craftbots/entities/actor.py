@@ -33,11 +33,12 @@ class Actor:
         self.target = None
         self.resources = []
         self.deviation = 0
+        self.current_command = None
 
         self.node.append_actor(self)
 
         self.fields = {"node": self.node.id, "state": self.state, "progress": self.progress, "id": self.id,
-                       "target": None, "resources": []}
+                       "target": None, "resources": [], "current_command": None}
 
     def __repr__(self):
         return "Actor(" + str(self.id) + ", " + str(self.node) + ")"
@@ -45,7 +46,7 @@ class Actor:
     def __str__(self):
         return self.__repr__()
 
-    def travel_to(self, target_node):
+    def travel_to(self, target_node) -> bool | None:
         """
         Tells the actor to begin moving to the targeted node. Whenever the actor is updated via update(), it will make
         a certain amount of progress based on the ACTOR_SPEED modifier. Actor must be idle before beginning to travel.
@@ -63,10 +64,10 @@ class Actor:
             self.set_target((self.node.edges[node_index], target_node))
             self.set_state(Actor.MOVING)
             self.set_progress(0)
-            return True
+            return None
         return False
 
-    def travel_rand(self):
+    def travel_rand(self) -> bool | None:
         """
         Tells the actor to begin travelling towards a random node that shares an edge with the node it is currently in
         :return: True if successful and False otherwise
@@ -82,6 +83,7 @@ class Actor:
         Called to simulate the actor performing actions for 1 tick. Depends on what the actor is currently doing via the
         state.
         """
+        
         if self.state == Actor.MOVING or self.state == Actor.RECOVERING:
             speed_mod = (self.world.building_modifiers[Building.BUILDING_SPEED] * 0.05) + 1
             move_speed = self.world.actor_config["move_speed"]
@@ -95,15 +97,19 @@ class Actor:
                 self.set_state(Actor.RECOVERING)
                 return
 
+
             self.set_progress(self.progress + (move_speed * speed_mod))
+            self.current_command.set_progress(self.progress)
             if self.target[0].length() <= self.progress:
                 self.node.remove_actor(self)
                 self.set_node(self.target[1])
                 self.node.append_actor(self)
-                self.set_state(0)
+                self.set_state(Actor.IDLE)
                 self.set_progress(-1)
                 self.set_target(None)
                 self.deviation = 0
+                self.current_command.set_result(True)
+                self.current_command.set_state(5)
         if self.state == Actor.DIGGING:
             self.target.dig(self.deviation)
         if self.state == Actor.CONSTRUCTING:
@@ -332,7 +338,7 @@ class Actor:
         """
         self.node = node
         self.fields.__setitem__("node", node.id)
-    
+
     def set_state(self, state):
         """
         Sets the actor's state, and keeps track of it in the actor's fields
@@ -365,6 +371,15 @@ class Actor:
                 self.fields.__setitem__("target", target.id)
             except AttributeError:
                 self.fields.__setitem__("target", target)
+
+    def set_current_command(self, command):
+        """
+        Sets the current command id that the actor is executing
+
+        :param target: the new target
+        """
+        self.current_command = command
+        self.fields.__setitem__("current_command", command.id)
     
     def append_resource(self, resource):
         """
