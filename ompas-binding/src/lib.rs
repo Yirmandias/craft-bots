@@ -1,6 +1,9 @@
 use async_trait::async_trait;
 use ompas_middleware::logger::LogClient;
 use ompas_middleware::{Master, ProcessInterface};
+use ompas_rae_core::contexts::ctx_rae::CtxRae;
+use ompas_rae_core::contexts::ctx_state::{CtxState, CTX_STATE};
+use ompas_rae_core::exec::{CtxRaeExec, MOD_RAE_EXEC};
 use ompas_rae_interface::platform::{
     Domain, InnerPlatformConfig, PlatformConfig, PlatformDescriptor, PlatformModule,
 };
@@ -8,14 +11,27 @@ use ompas_rae_interface::{
     DEFAULT_PLATFORM_SERVICE_IP, DEFAULT_PLATFROM_SERVICE_PORT, LOG_TOPIC_PLATFORM,
     PROCESS_TOPIC_PLATFORM,
 };
+use ompas_rae_structs::state::world_state::{WorldState, WorldStateSnapshot};
+use sompas_macros::async_scheme_fn;
+use sompas_structs::contextcollection::Context;
+use sompas_structs::documentation::Documentation;
+use sompas_structs::lenv::LEnv;
+use sompas_structs::lruntimeerror::LRuntimeError;
+use sompas_structs::lvalues::LValueS;
+use sompas_structs::module::{IntoModule, Module};
+use sompas_structs::purefonction::PureFonctionCollection;
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt::{Display, Formatter};
 use std::fs::File;
 use std::net::SocketAddr;
 use std::os::unix::io::{FromRawFd, IntoRawFd};
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
+use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::RwLock;
 use tokio::time::sleep;
+use tokio_stream::StreamExt;
 
 const TOKIO_CHANNEL_SIZE: usize = 100;
 const PROCESS_CRAFT_BOTS: &str = "__PROCESS_CRAFT_BOTS_SIM__";
@@ -155,10 +171,253 @@ impl PlatformDescriptor for PlatformCraftBots {
     }
 
     async fn module(&self) -> Option<PlatformModule> {
-        None
+        Some(PlatformModule::new(CraftBotsModule::default()))
     }
 
     async fn socket(&self) -> SocketAddr {
         self.service_info.clone()
+    }
+}
+
+pub type Node = String;
+
+pub type NodeId = usize;
+
+pub struct Edge {
+    node_a: NodeId,
+    node_b: NodeId,
+    weight: i64,
+}
+
+#[derive(Default)]
+pub struct Graph {
+    nodes_ids: HashMap<Node, NodeId>,
+    nodes: HashMap<NodeId, Node>,
+    edges: Vec<Edge>,
+    n_nodes: usize,
+}
+
+#[derive(Default)]
+struct CraftBotsModule {
+    graph: Arc<RwLock<Graph>>,
+}
+
+impl CraftBotsModule {
+    async fn add_new_edge(&self, node_a: Node, node_b: Node, weight: i64) {
+        let mut graph = self.graph.write().await;
+        let node_a_id = graph.nodes_ids.get(&node_a).cloned();
+        let node_a_id = match node_a_id {
+            None => {
+                let id = graph.n_nodes;
+                graph.nodes_ids.insert(node_a.to_string(), id);
+                graph.nodes.insert(id, node_a.to_string());
+                graph.n_nodes += 1;
+                id
+            }
+            Some(id) => id,
+        };
+
+        let node_b_id = graph.nodes_ids.get(&node_b).cloned();
+        let node_b_id = match node_b_id {
+            None => {
+                let id = graph.n_nodes;
+                graph.nodes_ids.insert(node_b.to_string(), id);
+                graph.nodes.insert(id, node_b.to_string());
+                graph.n_nodes += 1;
+                id
+            }
+            Some(id) => id,
+        };
+
+        graph.edges.push(Edge {
+            node_a: node_a_id,
+            node_b: node_b_id,
+            weight,
+        });
+    }
+    /// Update the graph in function of the context
+    /// Used just before calling dijkstra
+    async fn update_graph(&self, world_state: WorldStateSnapshot) {
+        let edges: Vec<String> = world_state.instance.get_instances("edge").await;
+        for edge in edges {
+            let edge: LValueS = edge.into();
+
+            let key_node_a: Vec<LValueS> = vec!["edge.node_a".into(), edge.clone()];
+            let node_a = world_state._static.get(&LValueS::from(key_node_a)).unwrap();
+            let key_node_b: Vec<LValueS> = vec!["edge.node_b".into(), edge.clone()];
+            let node_b = world_state._static.get(&LValueS::from(key_node_b)).unwrap();
+            let weight: i64 = world_state
+                ._static
+                .get(&LValueS::from(vec![LValueS::from("edge.length"), edge]))
+                .unwrap()
+                .try_into()
+                .unwrap();
+            self.add_new_edge(node_a.to_string(), node_b.to_string(), weight)
+                .await;
+        }
+    }
+
+    /// Return a sequence of node to go from node_start to node_end
+    async fn dijkstra(&self, node_start: Node, node_end: Node) -> Vec<Node> {
+        let graph = self.graph.read().await;
+
+        let sstart = *graph.nodes_ids.get(&node_start).unwrap();
+        let send = *graph.nodes_ids.get(&node_end).unwrap();
+        let mut distances: Vec<Option<i64>> = vec![None; graph.n_nodes];
+        distances[sstart] = Some(0);
+
+        let mut weights: Vec<Vec<Option<i64>>> = vec![vec![None; graph.n_nodes]; graph.n_nodes];
+        let mut neighbours: Vec<Vec<NodeId>> = vec![vec![]; graph.n_nodes];
+
+        for edge in &graph.edges {
+            weights[edge.node_a][edge.node_b] = Some(edge.weight);
+            weights[edge.node_b][edge.node_a] = Some(edge.weight);
+            neighbours[edge.node_a].push(edge.node_b);
+            neighbours[edge.node_b].push(edge.node_a);
+        }
+
+        let mut predecessors: Vec<Option<NodeId>> = vec![None; graph.n_nodes];
+
+        /*let find_min = |queue: &HashSet<NodeId>| -> Option<NodeId> {
+            let mut mini = None;
+            let mut top: Option<NodeId> = None;
+            for node in queue {
+                match mini {
+                    None => mini = distances[*node].clone(),
+                    Some(v) => {
+                        if let Some(distance) = distances[*node] {
+                            if distance < v {
+                                mini = Some(distance);
+                                top = Some(*node)
+                            }
+                        }
+                    }
+                }
+            }
+            top
+        };*/
+
+        /*let mut maj_distances = |s1: &NodeId, s2: &NodeId| {
+            let distance_s1 = distances[*s1].clone();
+            let distance_s2 = distances[*s2].clone();
+            let weight = weights[*s1][*s2].unwrap();
+
+            match (distance_s2, distance_s1) {
+                (None, Some(d1)) => {
+                    distances[*s2] = Some(d1 + weight);
+                    predecessors[*s2] = Some(*s1);
+                }
+                (Some(d2), Some(d1)) => {
+                    if d2 > d1 + weight {
+                        distances[*s2] = Some(d1 + weight);
+                        predecessors[*s2] = Some(*s1);
+                    }
+                }
+                _ => {}
+            }
+        };*/
+
+        let mut queue: HashSet<NodeId> = HashSet::default();
+        for id in 0..graph.n_nodes {
+            queue.insert(id);
+        }
+
+        while !queue.is_empty() {
+            //Find min
+            let s1 = {
+                let mut mini = None;
+                let mut top: Option<NodeId> = None;
+                for node in &queue {
+                    match mini {
+                        None => {
+                            mini = distances[*node].clone();
+                            top = Some(*node);
+                        }
+                        Some(v) => {
+                            if let Some(distance) = distances[*node] {
+                                if distance < v {
+                                    mini = Some(distance);
+                                    top = Some(*node)
+                                }
+                            }
+                        }
+                    }
+                }
+                top.unwrap()
+            };
+            queue.remove(&s1);
+            for s2 in &neighbours[s1] {
+                //MAJ DISTANCE
+                let distance_s1 = distances[s1].clone();
+                let distance_s2 = distances[*s2].clone();
+                let weight = weights[s1][*s2].unwrap();
+
+                match (distance_s2, distance_s1) {
+                    (None, Some(d1)) => {
+                        distances[*s2] = Some(d1 + weight);
+                        predecessors[*s2] = Some(s1);
+                    }
+                    (Some(d2), Some(d1)) => {
+                        if d2 > d1 + weight {
+                            distances[*s2] = Some(d1 + weight);
+                            predecessors[*s2] = Some(s1);
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        let mut route = vec![];
+        let mut s = send;
+        while s != sstart {
+            route.push(s);
+            s = predecessors[s].unwrap();
+        }
+
+        route.reverse();
+
+        route
+            .drain(..)
+            .map(|n| graph.nodes.get(&n).unwrap().clone())
+            .collect()
+    }
+}
+
+#[async_scheme_fn]
+pub async fn find_route(
+    env: &LEnv,
+    node_a: Node,
+    node_b: Node,
+) -> Result<Vec<Node>, LRuntimeError> {
+    let ctx = env.get_context::<CraftBotsModule>(CRAFT_BOTS_MOD)?;
+    let ctx_state = env.get_context::<CtxState>(CTX_STATE)?;
+
+    ctx.update_graph(ctx_state.state.get_snapshot().await).await;
+
+    Ok(ctx.dijkstra(node_a, node_b).await)
+}
+
+pub const CRAFT_BOTS_MOD: &str = "craft-bots-mod";
+pub const FIND_ROUTE: &str = "find_route";
+
+impl IntoModule for CraftBotsModule {
+    fn into_module(self) -> Module {
+        let mut module = Module {
+            ctx: Context::new(self),
+            prelude: vec![],
+            raw_lisp: Default::default(),
+            label: CRAFT_BOTS_MOD.to_string(),
+        };
+        module.add_async_fn_prelude(FIND_ROUTE, find_route);
+        module
+    }
+
+    fn documentation(&self) -> Documentation {
+        Default::default()
+    }
+
+    fn pure_fonctions(&self) -> PureFonctionCollection {
+        Default::default()
     }
 }

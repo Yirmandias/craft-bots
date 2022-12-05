@@ -42,7 +42,7 @@ NODE_Y = "node.y"
 EDGE_ID = "edge.id"
 EDGE_LENGTH = "edge.length"
 EDGE_NODE_A = "edge.node_a"
-EDEG_NODE_B = "edge.node_b"
+EDGE_NODE_B = "edge.node_b"
 
 MINE_ID = "mine.id"
 MINE_NODE = "mine.node"
@@ -87,6 +87,43 @@ COMMAND_PROGRESS = "command.progress"
 
 SLEEP_TIME = 0.01
 
+TYPE_ACTOR = "actor"
+TYPE_NODE = "node"
+TYPE_EDGE = "edge"
+TYPE_MINE = "mine"
+TYPE_RESOURCE = "resource"
+TYPE_SITE = "site"
+TYPE_BUILDING = "building"
+TYPE_TASK = "task"
+TYPE_COMMAND = "command"
+
+
+def actor_label(actor_id: int) -> str:
+    return TYPE_ACTOR+'_'+str(actor_id)
+
+def node_label(node_id: int) -> str:
+    return TYPE_NODE+'_'+str(node_id)
+
+def edge_label(edge_id: int) -> str:
+    return TYPE_EDGE+'_'+str(edge_id)
+
+def mine_label(mine_id: int) -> str:
+    return TYPE_MINE+'_'+str(mine_id)
+
+def resource_label(resource_id: int) -> str:
+    return TYPE_RESOURCE+'_'+str(resource_id)
+
+def site_label(site_id: int) -> str:
+    return TYPE_SITE+'_'+str(site_id)
+
+def building_label(building_id: int) -> str:
+    return TYPE_BUILDING+'_'+str(building_id)
+
+def task_label(task_id: int) -> str:
+    return TYPE_TASK+'_'+str(task_id)
+
+def command_label(command_id: int) -> str:
+    return TYPE_COMMAND+'_'+str(command_id)
 
 
 def state_from_int(state: int) -> str:
@@ -238,34 +275,37 @@ def command_state_from_int(state: int) -> str:
 def actor_static_facts(actor_id: int, actor: dict) -> list[StateVariable]:
     state_variables = []
     # Actor state variables
+    label = actor_label(actor_id)
 
     state_variables.append(StateVariable
         (type = STATIC,
         state_function=ACTOR_ID,
-        parameters=[Atom(int = actor_id)],
+        parameters=[Atom(symbol = label)],
         value = Expression(atom=Atom(int = actor_id))))
     
     return state_variables
 
 def actor_dynamic_facts(actor_id: int, actor: dict) -> list[StateVariable]:
     state_variables = []
+    label = actor_label(actor_id)
+
     # id of the current node of the actor
     state_variables.append(StateVariable
         (type = DYNAMIC,
         state_function=ACTOR_NODE,
-        parameters=[Atom(int = actor_id)],
-        value = Expression(atom=Atom(int = actor['node']))))
+        parameters=[Atom(symbol = label)],
+        value = Expression(atom=Atom(symbol = node_label(actor['node'])))))
     # state of the actor
     state_variables.append(StateVariable
         (type = DYNAMIC,
         state_function=ACTOR_STATE,
-        parameters=[Atom(int = actor_id)],
+        parameters=[Atom(symbol = label)],
         value = Expression(atom=Atom(symbol= state_from_int(actor['state'])))))
     # progress of the actor
     state_variables.append(StateVariable
         (type = DYNAMIC,
         state_function=ACTOR_PROGRESS,
-        parameters=[Atom(int = actor_id)],
+        parameters=[Atom(symbol = label)],
         value = Expression(atom=Atom(float = actor['progress']))))
     
     # target of the actor
@@ -279,28 +319,28 @@ def actor_dynamic_facts(actor_id: int, actor: dict) -> list[StateVariable]:
     state_variables.append(StateVariable
         (type = DYNAMIC,
         state_function=ACTOR_TARGET,
-        parameters=[Atom(int = actor_id)],
+        parameters=[Atom(symbol = label)],
         value = value))
     # resources of the actor
     resources = []
     for r in actor['resources']:
-        resources.append(Expression(atom = Atom(int = r)))
+        resources.append(Expression(atom = Atom(symbol = resource_label(r))))
 
     state_variables.append(StateVariable
         (type = DYNAMIC,
         state_function=ACTOR_RESSOURCES,
-        parameters=[Atom(int = actor_id)],
+        parameters=[Atom(symbol = label)],
         value = Expression(list=resources)))
     
     atom = Atom(boolean=False)
     current_command = actor['current_command']
     if current_command != None:
-        atom = Atom(int = current_command)
+        atom = Atom(symbol = command_label(current_command))
     
     state_variables.append(StateVariable(
         type=DYNAMIC,
         state_function=ACTOR_CURRENT_COMMAND,
-        parameters=[Atom(int = actor_id)],
+        parameters=[Atom(symbol = label)],
         value = Expression(atom = atom)
     ))
     return state_variables
@@ -308,11 +348,12 @@ def actor_dynamic_facts(actor_id: int, actor: dict) -> list[StateVariable]:
 
 def node_static_facts(node_id: int, node: dict) -> list[StateVariable]:
     state_variables = []
+    label = node_label(node_id)
     # id of the node
     state_variables.append(StateVariable(
         type = STATIC,
         state_function= NODE_ID,
-        parameters=[Atom(int = node_id)],
+        parameters=[Atom(symbol = label)],
         value = Expression(atom = Atom(int = node_id))
     ))
     
@@ -320,91 +361,96 @@ def node_static_facts(node_id: int, node: dict) -> list[StateVariable]:
     # list of mines present at the node
     mines = []
     for mine in node['mines']:
-        mines.append(Expression(atom = Atom(int = mine)))
+        mines.append(Expression(atom = Atom(symbol = mine_label(mine))))
+
     state_variables.append(StateVariable(
         type = STATIC,
         state_function= NODE_MINES,
-        parameters=[Atom(int = node_id)],
+        parameters=[Atom(symbol = label)],
         value = Expression(list = mines)))
     
     # list of edges present at the node
     
     edges = []
     for edge in node['edges']:
-        edges.append(Expression(atom = Atom(int = edge)))
+        edges.append(Expression(atom = Atom(symbol = edge_label(edge))))
     
     state_variables.append(StateVariable(
         type = STATIC,
         state_function= NODE_EDGES,
-        parameters=[Atom(int = node_id)],
+        parameters=[Atom(symbol = label)],
         value = Expression(list = edges)))
     
     # x position of the node
     state_variables.append(StateVariable(
         type = STATIC,
         state_function= NODE_X,
-        parameters=[Atom(int = node_id)],
+        parameters=[Atom(symbol = label)],
         value = Expression(atom = Atom(float = node['x']))))
 
     # y position of the node
     state_variables.append(StateVariable(
         type = STATIC,
         state_function= NODE_Y,
-        parameters=[Atom(int = node_id)],
+        parameters=[Atom(symbol = label)],
         value = Expression(atom = Atom(float = node['y']))))
     return state_variables
 
 def node_dynamic_facts(node_id: int, node: dict) -> list[StateVariable]:
     state_variables = []
-    
+    label = node_label(node_id)
+
     # list of actors present at the node
     actors = []
     for actor in node['actors']:
-        actors.append(Expression(atom = Atom(int = actor)))
+        actors.append(Expression(atom = Atom(symbol = actor_label(actor))))
+    
     state_variables.append(StateVariable(
         type = DYNAMIC,
         state_function= NODE_ACTORS,
-        parameters=[Atom(int = node_id)],
+        parameters=[Atom(symbol = label)],
         value = Expression(list = actors)))
     
     # list of tasks present at the node
     tasks = []
     for task in node['tasks']:
-        tasks.append(Expression(atom = Atom(int = task)))
+        tasks.append(Expression(atom = Atom(symbol = task_label(task))))
     state_variables.append(StateVariable(
         type = DYNAMIC,
         state_function= NODE_TASKS,
-        parameters=[Atom(int = node_id)],
+        parameters=[Atom(symbol = label)],
         value = Expression(list = tasks)))
     
     # list of sites present at the node
     sites = []
     for site in node['sites']:
-        sites.append(Expression(atom = Atom(int = site)))
+        sites.append(Expression(atom = Atom(symbol = site_label(site))))
+    
     state_variables.append(StateVariable(
         type = DYNAMIC,
         state_function= NODE_SITES,
-        parameters=[Atom(int = node_id)],
+        parameters=[Atom(symbol = label)],
         value = Expression(list = sites)))
 
     # list of buildings present at the node
     buildings = []
     for building in node['buildings']:
-        buildings.append(Expression(atom= Atom(int = building)))
+        buildings.append(Expression(atom= Atom(symbol = building_label(building))))
+    
     state_variables.append(StateVariable(
         type = DYNAMIC,
         state_function= NODE_BUILDINGS,
-        parameters=[Atom(int = node_id)],
+        parameters=[Atom(symbol = label)],
         value = Expression(list = buildings)))
 
     # list of resources present at the node
     resources = []
     for resource in node['resources']:
-        resources.append(Expression(atom = Atom(int = resource)))
+        resources.append(Expression(atom = Atom(symbol = resource_label(resource))))
     state_variables.append(StateVariable(
         type = DYNAMIC,
         state_function= NODE_RESOURCES,
-        parameters=[Atom(int = node_id)],
+        parameters=[Atom(symbol = label)],
         value = Expression(list = resources)))
 
     return state_variables
@@ -412,11 +458,12 @@ def node_dynamic_facts(node_id: int, node: dict) -> list[StateVariable]:
 
 def edge_static_facts(edge_id: int, edge: dict) -> list[StateVariable]:
     state_variables = []
+    label = edge_label(edge_id)
     # id of the edge
     state_variables.append(StateVariable(
         type=STATIC,
         state_function= EDGE_ID,
-        parameters=[Atom(int = edge_id)],
+        parameters=[Atom(symbol = label)],
         value = Expression(atom = Atom(int = edge_id))
     ))
 
@@ -424,7 +471,7 @@ def edge_static_facts(edge_id: int, edge: dict) -> list[StateVariable]:
     state_variables.append(StateVariable(
         type=STATIC,
         state_function= EDGE_LENGTH,
-        parameters=[Atom(int = edge_id)],
+        parameters=[Atom(symbol = label)],
         value = Expression(atom = Atom(int = edge['length']))
     ))
 
@@ -432,27 +479,27 @@ def edge_static_facts(edge_id: int, edge: dict) -> list[StateVariable]:
     state_variables.append(StateVariable(
         type=STATIC,
         state_function= EDGE_NODE_A,
-        parameters=[Atom(int = edge_id)],
-        value = Expression(atom = Atom(int = edge['node_a']))
+        parameters=[Atom(symbol = label)],
+        value = Expression(atom = Atom(symbol = node_label(edge['node_a'])))
     ))
 
     # node_b of the edge
     state_variables.append(StateVariable(
         type=STATIC,
-        state_function= EDEG_NODE_B,
-        parameters=[Atom(int = edge_id)],
-        value = Expression(atom = Atom(int = edge['node_b']))
+        state_function= EDGE_NODE_B,
+        parameters=[Atom(symbol = label)],
+        value = Expression(atom = Atom(symbol = node_label(edge['node_b'])))
     ))
     return state_variables
-
 
 def mine_static_facts(mine_id: int, mine: dict) -> list[StateVariable]:
     state_variables = []
     # id of the mine
+    label = mine_label(mine_id)
     state_variables.append(StateVariable(
         type = STATIC,
         state_function=MINE_ID,
-        parameters=[Atom(int = mine_id)],
+        parameters=[Atom(symbol = label)],
         value = Expression(atom = Atom(int = mine_id))
     ))
 
@@ -460,15 +507,15 @@ def mine_static_facts(mine_id: int, mine: dict) -> list[StateVariable]:
     state_variables.append(StateVariable(
         type=STATIC,
         state_function=MINE_NODE,
-        parameters=[Atom(int = mine_id)],
-        value = Expression(atom= Atom(int = mine['node']))
+        parameters=[Atom(symbol = label)],
+        value = Expression(atom= Atom(symbol = node_label(mine['node'])))
     ))
 
     # colour of the mine
     state_variables.append(StateVariable(
         type=STATIC,
         state_function=MINE_COLOUR,
-        parameters=[Atom(int = mine_id)],
+        parameters=[Atom(symbol = label)],
         value = Expression(atom = Atom(symbol = colour_from_int(mine['colour'])))
     ))
 
@@ -476,7 +523,7 @@ def mine_static_facts(mine_id: int, mine: dict) -> list[StateVariable]:
     state_variables.append(StateVariable(
         type=STATIC,
         state_function=MINE_MAX_PROGRESS,
-        parameters=[Atom(int = mine_id)],
+        parameters=[Atom(symbol = label)],
         value = Expression(atom = Atom(int = mine['max_progress']))
     ))
     return state_variables
@@ -484,10 +531,12 @@ def mine_static_facts(mine_id: int, mine: dict) -> list[StateVariable]:
 def mine_dynamic_facts(mine_id: int, mine: dict) -> list[StateVariable]:
     state_variables = []
      # progress of the mine
+    label = mine_label(mine_id)
+
     state_variables.append(StateVariable(
         type=DYNAMIC,
         state_function=MINE_PROGRESS,
-        parameters=[Atom(int = mine_id)],
+        parameters=[Atom(symbol = label)],
         value = Expression(atom= Atom(int = mine['progress']))
     ))
     return state_variables
@@ -495,10 +544,11 @@ def mine_dynamic_facts(mine_id: int, mine: dict) -> list[StateVariable]:
 def resource_static_facts(resource_id: int, resource: dict) -> list[StateVariable]:
     state_variables = []
         # id of the resource
+    label = resource_label(resource_id)
     state_variables.append(StateVariable(
         type = STATIC,
         state_function=RESOURCE_ID,
-        parameters=[Atom(int = resource_id)],
+        parameters=[Atom(symbol = label)],
         value = Expression(atom = Atom(int = resource_id))
     ))
 
@@ -506,7 +556,7 @@ def resource_static_facts(resource_id: int, resource: dict) -> list[StateVariabl
     state_variables.append(StateVariable(
         type = STATIC,
         state_function=RESOURCE_COLOUR,
-        parameters=[Atom(int = resource_id)],
+        parameters=[Atom(symbol = label)],
         value = Expression(atom = Atom(symbol = colour_from_int(resource['colour'])))
     ))
 
@@ -514,7 +564,7 @@ def resource_static_facts(resource_id: int, resource: dict) -> list[StateVariabl
     state_variables.append(StateVariable(
         type = STATIC,
         state_function=RESOURCE_TICK_CREATED,
-        parameters=[Atom(int = resource_id)],
+        parameters=[Atom(symbol = label)],
         value = Expression(atom = Atom(int = resource['tick_created']))
     ))
 
@@ -523,19 +573,21 @@ def resource_static_facts(resource_id: int, resource: dict) -> list[StateVariabl
 def resource_dynamic_facts(resource_id: int, resource: dict) -> list[StateVariable]:
     state_variables = []
 
+    label = resource_label(resource_id)
+
     # location of the resource
     state_variables.append(StateVariable(
         type = DYNAMIC,
         state_function=RESOURCE_LOCATION,
-        parameters=[Atom(int = resource_id)],
-        value = Expression(atom = Atom(int = resource['location']))
+        parameters=[Atom(symbol = label)],
+        value = Expression(atom = Atom(symbol = resource['location']))
     ))
 
     # tick at which of the resource was create
     state_variables.append(StateVariable(
         type = DYNAMIC,
         state_function=RESOURCE_USED,
-        parameters=[Atom(int = resource_id)],
+        parameters=[Atom(symbol = label)],
         value = Expression(atom = Atom(boolean = resource['used']))
     ))
     return state_variables
@@ -543,25 +595,28 @@ def resource_dynamic_facts(resource_id: int, resource: dict) -> list[StateVariab
 
 def site_static_facts(site_id: int, site: dict) -> list[StateVariable]:
     state_variables = []
+
+    label=site_label(site_id)
+
     state_variables.append(StateVariable(
         type = STATIC,
         state_function=SITE_ID,
-        parameters=[Atom(int = site_id)],
+        parameters=[Atom(symbol = label)],
         value = Expression(atom = Atom(int = site_id))
     ))
 
     state_variables.append(StateVariable(
         type = STATIC,
         state_function=SITE_BUILDING_TYPE,
-        parameters=[Atom(int = site_id)],
+        parameters=[Atom(symbol = label)],
         value = Expression(atom = Atom(symbol = building_type_from_int(site['building_type'])))
     ))
 
     state_variables.append(StateVariable(
         type = STATIC,
         state_function=SITE_NODE,
-        parameters=[Atom(int = site_id)],
-        value = Expression(atom = Atom(int = site['node']))
+        parameters=[Atom(symbol = label)],
+        value = Expression(atom = Atom(int = node_label(site['node'])))
     ))
 
     needed_resources = []
@@ -571,21 +626,21 @@ def site_static_facts(site_id: int, site: dict) -> list[StateVariable]:
     state_variables.append(StateVariable(
         type = STATIC,
         state_function=SITE_NEDDED_RESOURCES,
-        parameters=[Atom(int = site_id)],
+        parameters=[Atom(symbol = label)],
         value = Expression(list = needed_resources))
     )
 
     state_variables.append(StateVariable(
         type = STATIC,
         state_function=SITE_NEEDED_EFFORT,
-        parameters=[Atom(int = site_id)],
+        parameters=[Atom(symbol = label)],
         value = Expression(atom = Atom(int = site['needed_effort'])))
     )
 
     state_variables.append(StateVariable(
         type = STATIC,
         state_function=SITE_MAX_PROGRESS,
-        parameters=[Atom(int = site_id)],
+        parameters=[Atom(symbol = label)],
         value = Expression(atom = Atom(int = site['max_progress'])))
     )
 
@@ -593,22 +648,24 @@ def site_static_facts(site_id: int, site: dict) -> list[StateVariable]:
 
 def site_dynamic_facts(site_id: int, site: dict) -> list[StateVariable]:
     state_variables = []
+
+    label = site_label(site_id)
     
     deposited_resources = []
     for r in site['deposited_resources']:
-        needed_resources.append(Expression(atom = Atom(int = r)))
+        deposited_resources.append(Expression(atom = Atom(int = r)))
 
     state_variables.append(StateVariable(
         type = DYNAMIC,
         state_function=SITE_DEPOSITED_RESOURCES,
-        parameters=[Atom(int = site_id)],
+        parameters=[Atom(symbol = label)],
         value = Expression(list = deposited_resources))
     )
     
     state_variables.append(StateVariable(
         type = DYNAMIC,
         state_function=SITE_PROGRESS,
-        parameters=[Atom(int = site_id)],
+        parameters=[Atom(symbol = label)],
         value = Expression(atom = Atom(int = site['progress'])))
     )
     return state_variables
@@ -616,34 +673,40 @@ def site_dynamic_facts(site_id: int, site: dict) -> list[StateVariable]:
 
 def building_static_facts(building_id: int, building: dict) -> list[StateVariable]:
     state_variables =[]
+
+    label = building_label(building_id)
+
     state_variables.append(StateVariable(
         type = STATIC,
         state_function=BUILDING_ID,
-        parameters=[Atom(int = building_id)],
+        parameters=[Atom(symbol = label)],
         value = Expression(atom = Atom(int = building_id))
     ))
 
     state_variables.append(StateVariable(
         type = STATIC,
         state_function=BUILDING_NODE,
-        parameters=[Atom(int = building_id)],
-        value = Expression(atom = Atom(int = building['node']))
+        parameters=[Atom(symbol = label)],
+        value = Expression(atom = Atom(symbol = node_label(building['node'])))
     ))
 
     state_variables.append(StateVariable(
         type = STATIC,
         state_function=BUILDING_NODE,
-        parameters=[Atom(int = building_id)],
+        parameters=[Atom(symbol = label)],
         value = Expression(atom = Atom(symbol = building_type_from_int(building['building_type'])))
     ))
     return state_variables
 
 def task_static_facts(task_id: int, task: dict) -> list[StateVariable]:
     state_variables =[]
+
+    label = task_label(task_id)
+
     state_variables.append(StateVariable(
         type = STATIC,
         state_function=TASK_ID,
-        parameters = [Atom(int = task_id)],
+        parameters = [Atom(symbol = label)],
         value = Expression(atom = Atom(int = task_id))
     ))
 
@@ -651,36 +714,36 @@ def task_static_facts(task_id: int, task: dict) -> list[StateVariable]:
     state_variables.append(StateVariable(
         type = STATIC,
         state_function=TASK_DEADLINE,
-        parameters = [Atom(int = task_id)],
+        parameters = [Atom(symbol = label)],
         value = Expression(atom = Atom(int = task['deadline']))
     ))
 
     state_variables.append(StateVariable(
         type = STATIC,
         state_function=TASK_SCORE,
-        parameters = [Atom(int = task_id)],
+        parameters = [Atom(symbol = label)],
         value = Expression(atom = Atom(int= task['score']))
     ))
 
     state_variables.append(StateVariable(
         type = STATIC,
         state_function=TASK_NODE,
-        parameters = [Atom(int = task_id)],
-        value = Expression(atom = Atom(int= task['node']))
+        parameters = [Atom(symbol = label)],
+        value = Expression(atom = Atom(symbol= node_label(task['node'])))
     ))
 
 
     state_variables.append(StateVariable(
         type = STATIC,
         state_function=TASK_START_TIME,
-        parameters = [Atom(int = task_id)],
+        parameters = [Atom(symbol = label)],
         value = Expression(atom = Atom(int= task['start_time']))
     ))
 
     state_variables.append(StateVariable(
         type = STATIC,
         state_function=TASK_DIFFICULTY,
-        parameters = [Atom(int = task_id)],
+        parameters = [Atom(symbol = label)],
         value = Expression(atom = Atom(symbol= difficulty_from_int(task['difficulty'])))
     ))
 
@@ -691,28 +754,30 @@ def task_static_facts(task_id: int, task: dict) -> list[StateVariable]:
     state_variables.append(StateVariable(
         type = STATIC,
         state_function=TASK_NEEDED_RESOURCES,
-        parameters = [Atom(int = task_id)],
+        parameters = [Atom(symbol = label)],
         value = Expression(list = needed_resources))
     )
     return state_variables
 
 def task_dynamic_facts(task_id: int, task: dict) -> list[StateVariable]:
     state_variables =[]
+
+    label = task_label(task_id)
     
     state_variables.append(StateVariable(
         type = DYNAMIC,
         state_function=TASK_COMPLETED,
-        parameters = [Atom(int = task_id)],
+        parameters = [Atom(symbol = label)],
         value = Expression(atom = Atom(boolean= task['completed']))
     ))
 
     site = Atom(boolean=False)
     if task['site'] != None:
-        site = Atom(int = task['site'])
+        site = Atom(symbol = site_label(task['site']))
     state_variables.append(StateVariable(
         type = DYNAMIC,
         state_function=TASK_SITE,
-        parameters = [Atom(int = task_id)],
+        parameters = [Atom(symbol = label)],
         value = Expression(atom = site)
     ))
 
@@ -720,17 +785,20 @@ def task_dynamic_facts(task_id: int, task: dict) -> list[StateVariable]:
 
 def command_static_facts(command_id: int, command: dict) -> list[StateVariable]:
     state_variables=[]
+
+    label= command_label(command_id)
+
     state_variables.append(StateVariable(
         type=STATIC,
         state_function=COMMAND_ID,
-        parameters=[Atom(int = command_id)],
+        parameters = [Atom(symbol = label)],
         value = Expression(atom = Atom(int = command_id))
     ))
 
     state_variables.append(StateVariable(
         type=STATIC,
         state_function=COMMAND_FUNCTION,
-        parameters=[Atom(int = command_id)],
+        parameters = [Atom(symbol = label)],
         value = Expression(atom = Atom(symbol= function_from_int(command['function_id'])))
     ))
 
@@ -738,6 +806,8 @@ def command_static_facts(command_id: int, command: dict) -> list[StateVariable]:
 
 def command_dynamic_facts(command_id: int, command: dict) -> list[StateVariable]:
     state_variables=[]
+
+    label= command_label(command_id)
 
     atom = Atom(boolean = False)
     result = command['result']
@@ -747,14 +817,14 @@ def command_dynamic_facts(command_id: int, command: dict) -> list[StateVariable]
     state_variables.append(StateVariable(
         type=DYNAMIC,
         state_function=COMMAND_RESULT,
-        parameters=[Atom(int = command_id)],
+        parameters = [Atom(symbol = label)],
         value = Expression(atom = atom)
     ))
 
     state_variables.append(StateVariable(
         type=DYNAMIC,
         state_function=COMMAND_STATE,
-        parameters=[Atom(int = command_id)],
+        parameters = [Atom(symbol = label)],
         value = Expression(atom = Atom(symbol= command_state_from_int(command['state'])))
     ))
 
@@ -844,51 +914,39 @@ def handle_incoming_commands(api: AgentAPI, request_iterator, command_responses:
                         r = -1
                         match function_id:
                             case Command.MOVE_TO:
-                                node_id = other[0].atom.int
+                                node_id = int(other[0].atom.symbol.removeprefix(TYPE_NODE+'_'))
                                 r = api.move_to(actor_id, node_id)
                             case Command.MOVE_RAND:
-                                #print(f'actor_id = {actor_id}')
                                 r = api.move_rand(actor_id)
                             case Command.PICK_UP_RESOURCE:
-                                actor_id = other[0].atom.int
-                                resource_id = other[1].atom.int
+                                resource_id = int(other[0].atom.symbol.removeprefix(TYPE_RESOURCE+'_'))
                                 r = api.pick_up_resource(actor_id, resource_id)
                             case Command.DROP_RESOURCE:
-                                actor_id = other[0].atom.int
-                                resource_id = other[1].atom.int
+                                resource_id = int(other[0].atom.symbol.removeprefix(TYPE_RESOURCE+'_'))
                                 r = api.drop_resource(actor_id, resource_id)
                             case Command.DROP_ALL_RESOURCES:
-                                actor_id = other[0].atom.int
                                 r = api.drop_all_resources(actor_id)
                             case Command.DIG_AT:
-                                actor_id = other[0].atom.int
-                                mine_id = other[1].atom.int
+                                mine_id = int(other[0].atom.symbol.removeprefix(TYPE_MINE+'_'))
                                 r = api.dig_at(actor_id, mine_id)
                             case Command.START_SITE:
-                                actor_id = other[0].atom.int
-                                task_id = other[1].atom.int
+                                task_id = int(other[0].atom.symbol.removeprefix(TYPE_TASK+'_'))
                                 r = api.start_site(actor_id, task_id)
                             case Command.CONSTRUCT_AT:
-                                actor_id = other[0].atom.int
-                                site_id = other[1].atom.int
+                                site_id = int(other[0].atom.symbol.removeprefix(TYPE_SITE+'_'))
                                 r = api.construct_at(actor_id, site_id)
                             case Command.DEPOSIT_RESOURCES:
-                                actor_id = other[0].atom.int
-                                site_id = other[1].atom.int
-                                resource_id = other[2].atom.int
+                                site_id = int(other[0].atom.symbol.removeprefix(TYPE_SITE+'_'))
+                                resource_id = int(other[1].atom.symbol.removeprefix(TYPE_RESOURCE+'_'))
                                 r = api.deposit_resources(actor_id, site_id)
                             case Command.CANCEL_ACTION:
-                                actor_id = other[0].atom.int
                                 r = api.cancel_action(actor_id)
                             case Command.START_LOOKING:
-                                actor_id = other[0].atom.int
                                 r = api.start_looking(actor_id)
                             case Command.START_SENDING:
-                                actor_id = other[0].atom.int
-                                message = other[1].atom.symbol
+                                message = other[0].atom.symbol
                                 r = api.start_sending(actor_id, message)
                             case Command.START_RECEIVING:
-                                actor_id = other[0].atom.int
                                 r = api.start_receiving(actor_id)
                         if r == -1:
                             # command has not been accepted by API
@@ -949,15 +1007,7 @@ def handle_current_commands(api: AgentAPI, command_responses: CommandResponseCol
     
     # print("end current commands")
 
-TYPE_ACTOR = "actor"
-TYPE_NODE = "node"
-TYPE_EDGE = "edge"
-TYPE_MINE = "mine"
-TYPE_RESOURCE = "resource"
-TYPE_SITE = "site"
-TYPE_BUILDING = "building"
-TYPE_TASK = "task"
-TYPE_COMMAND = "command"
+
 class CraftBotsServicer(platform_interfaceServicer):
     def __init__(self, api: AgentAPI):
         self.api = api
@@ -1008,7 +1058,7 @@ class CraftBotsServicer(platform_interfaceServicer):
                             # for new actors
                             if not list_actors.__contains__(actor_id):
                                 state.state_variables.extend(actor_static_facts(actor_id, actor))
-                                yield PlatformUpdate(event = Event(instance=Instance(type=TYPE_ACTOR, object = TYPE_ACTOR+'_'+ str(actor_id))))
+                                yield PlatformUpdate(event = Event(instance=Instance(type=TYPE_ACTOR, object = actor_label(actor_id))))
                             state.state_variables.extend(actor_dynamic_facts(actor_id, actor))
 
                         list_actors = actors_id
@@ -1019,7 +1069,7 @@ class CraftBotsServicer(platform_interfaceServicer):
                             # for new nodes
                             if not list_nodes.__contains__(node_id):
                                 state.state_variables.extend(node_static_facts(node_id, node))
-                                yield PlatformUpdate(event = Event(instance=Instance(type=TYPE_NODE, object = TYPE_NODE+'_'+ str(node_id))))
+                                yield PlatformUpdate(event = Event(instance=Instance(type=TYPE_NODE, object = node_label(node_id))))
                             state.state_variables.extend(node_dynamic_facts(node_id, node))
                             
                         list_nodes = nodes_id
@@ -1030,7 +1080,7 @@ class CraftBotsServicer(platform_interfaceServicer):
                             # for new edges
                             if not list_edges.__contains__(edge_id):
                                 state.state_variables.extend(edge_static_facts(edge_id, edge))
-                                yield PlatformUpdate(event = Event(instance=Instance(type=TYPE_EDGE, object = TYPE_EDGE + '_'+ str(edge_id))))
+                                yield PlatformUpdate(event = Event(instance=Instance(type=TYPE_EDGE, object = edge_label(edge_id))))
                         
                         list_edges = edges_id
 
@@ -1040,7 +1090,7 @@ class CraftBotsServicer(platform_interfaceServicer):
                             # for new edges
                             if not list_mines.__contains__(mine_id):
                                 state.state_variables.extend(mine_static_facts(mine_id, mine))
-                                yield PlatformUpdate(event = Event(instance=Instance(type=TYPE_MINE, object = TYPE_MINE + '_'+ str(mine_id))))
+                                yield PlatformUpdate(event = Event(instance=Instance(type=TYPE_MINE, object = mine_label(mine_id))))
                             state.state_variables.extend(mine_dynamic_facts(mine_id, mine))
                             
                         list_mines = mines_id
@@ -1049,9 +1099,9 @@ class CraftBotsServicer(platform_interfaceServicer):
                         resources_id = world_info['resources'].keys()
                         for resource_id, resource in world_info['resources'].items():
                             # for new edges
-                            if not list_resources.__contains__(mine_id):
+                            if not list_resources.__contains__(resource_id):
                                 state.state_variables.extend(resource_static_facts(resource_id, resource))
-                                yield PlatformUpdate(event = Event(instance=Instance(type=TYPE_RESOURCE, object = TYPE_RESOURCE + '_'+ str(resource_id))))
+                                yield PlatformUpdate(event = Event(instance=Instance(type=TYPE_RESOURCE, object = resource_label(resource_id))))
                             state.state_variables.extend(resource_dynamic_facts(resource_id, resource))
                             
                         list_resources = resources_id
@@ -1060,9 +1110,9 @@ class CraftBotsServicer(platform_interfaceServicer):
                         sites_id = world_info['sites'].keys()
                         for site_id, site in world_info['sites'].items():
                             # for new edges
-                            if not list_sites.__contains__(mine_id):
+                            if not list_sites.__contains__(site_id):
                                 state.state_variables.extend(site_static_facts(site_id, site))
-                                yield PlatformUpdate(event = Event(instance=Instance(type=TYPE_SITE, object = TYPE_SITE + '_'+ str(site_id))))
+                                yield PlatformUpdate(event = Event(instance=Instance(type=TYPE_SITE, object = site_label(site_id))))
                             state.state_variables.extend(site_dynamic_facts(site_id, site))
                             
                         list_sites = sites_id
@@ -1071,9 +1121,9 @@ class CraftBotsServicer(platform_interfaceServicer):
                         buildings_id = world_info['buildings'].keys()
                         for building_id, building in world_info['buildings'].items():
                             # for new edges
-                            if not list_buildings.__contains__(mine_id):
+                            if not list_buildings.__contains__(building_id):
                                 state.state_variables.extend(building_static_facts(building_id, building))
-                                yield PlatformUpdate(event = Event(instance=Instance(type=TYPE_BUILDING, object = TYPE_BUILDING + '_'+ str(building_id))))
+                                yield PlatformUpdate(event = Event(instance=Instance(type=TYPE_BUILDING, object = building_label(building_id))))
                             
                         list_buildings = buildings_id
 
@@ -1081,9 +1131,9 @@ class CraftBotsServicer(platform_interfaceServicer):
                         tasks_id = world_info['tasks'].keys()
                         for task_id, task in world_info['tasks'].items():
                             # for new edges
-                            if not list_tasks.__contains__(mine_id):
+                            if not list_tasks.__contains__(task_id):
                                 state.state_variables.extend(task_static_facts(task_id, task))
-                                yield PlatformUpdate(event = Event(instance=Instance(type=TYPE_TASK, object = TYPE_TASK + '_'+ str(task_id))))
+                                yield PlatformUpdate(event = Event(instance=Instance(type=TYPE_TASK, object = task_label(task_id))))
                             state.state_variables.extend(task_dynamic_facts(task_id, task))
 
                         list_tasks = tasks_id
@@ -1092,9 +1142,9 @@ class CraftBotsServicer(platform_interfaceServicer):
                         commands_id = world_info['commands'].keys()
                         for command_id, command in world_info['commands'].items():
                             # for new edges
-                            if not list_tasks.__contains__(mine_id):
+                            if not list_commands.__contains__(command_id):
                                 state.state_variables.extend(command_static_facts(command_id, command))
-                                yield PlatformUpdate(event = Event(instance=Instance(type=TYPE_COMMAND, object = TYPE_COMMAND + '_'+ str(command_id))))
+                                yield PlatformUpdate(event = Event(instance=Instance(type=TYPE_COMMAND, object =command_label(command_id))))
                             state.state_variables.extend(command_dynamic_facts(command_id, command))
 
                         list_commands = commands_id

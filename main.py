@@ -17,7 +17,7 @@ if __name__ == '__main__':
     sim = Simulation(configuration_file=args.f)
 
     # agent
-    # agent = RBAgent()
+    #agent = RBAgent()
     agent = OMPASAgent()
     sim.agents.append(agent)
 
@@ -27,4 +27,5 @@ if __name__ == '__main__':
     gui.simulation.start_simulation()
 
     gui.start_window()
+
 
