@@ -72,13 +72,15 @@ class Command:
                 site = self.world.get_by_id(self.args[1], entity_type="Site")
                 if site is None:
                     site = self.world.get_by_id(self.args[1], entity_type="Building")
+                if site is not None:
                     self.set_result(actor.construct_at(site))
                     result = self.result
             elif self.function_id == Command.DEPOSIT_RESOURCES and self.args.__len__() == 3:
                 site = self.world.get_by_id(self.args[1], entity_type="Site")
+                if site is None:
+                    site = self.world.get_by_id(self.args[1], entity_type="Building")
                 resource = self.world.get_by_id(self.args[2], entity_type="Resource")            
                 if site is not None and resource is not None:
-                    site = self.world.get_by_id(self.args[1], entity_type="Building")
                     self.set_result(actor.deposit(site, resource))
                     result = self.result
             elif self.function_id == Command.CANCEL_ACTION and self.args.__len__() == 1:

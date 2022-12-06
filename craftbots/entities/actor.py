@@ -184,7 +184,7 @@ class Actor:
             return True
         return False
 
-    def dig_at(self, mine):
+    def dig_at(self, mine) -> bool | None:
         """
         Tells the actor to start digging at the selected mine. Actor must be idle to start digging and the mine should
         be at the same node as the actor. When the actor is updated via update(), the actor makes progress towards

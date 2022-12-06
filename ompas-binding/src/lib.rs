@@ -1,9 +1,7 @@
 use async_trait::async_trait;
 use ompas_middleware::logger::LogClient;
 use ompas_middleware::{Master, ProcessInterface};
-use ompas_rae_core::contexts::ctx_rae::CtxRae;
 use ompas_rae_core::contexts::ctx_state::{CtxState, CTX_STATE};
-use ompas_rae_core::exec::{CtxRaeExec, MOD_RAE_EXEC};
 use ompas_rae_interface::platform::{
     Domain, InnerPlatformConfig, PlatformConfig, PlatformDescriptor, PlatformModule,
 };
@@ -11,7 +9,7 @@ use ompas_rae_interface::{
     DEFAULT_PLATFORM_SERVICE_IP, DEFAULT_PLATFROM_SERVICE_PORT, LOG_TOPIC_PLATFORM,
     PROCESS_TOPIC_PLATFORM,
 };
-use ompas_rae_structs::state::world_state::{WorldState, WorldStateSnapshot};
+use ompas_rae_structs::state::world_state::WorldStateSnapshot;
 use sompas_macros::async_scheme_fn;
 use sompas_structs::contextcollection::Context;
 use sompas_structs::documentation::Documentation;
@@ -20,7 +18,7 @@ use sompas_structs::lruntimeerror::LRuntimeError;
 use sompas_structs::lvalues::LValueS;
 use sompas_structs::module::{IntoModule, Module};
 use sompas_structs::purefonction::PureFonctionCollection;
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::fs::File;
 use std::net::SocketAddr;
@@ -31,9 +29,8 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
 use tokio::time::sleep;
-use tokio_stream::StreamExt;
 
-const TOKIO_CHANNEL_SIZE: usize = 100;
+//const TOKIO_CHANNEL_SIZE: usize = 100;
 const PROCESS_CRAFT_BOTS: &str = "__PROCESS_CRAFT_BOTS_SIM__";
 pub const DEFAULT_CRAFT_BOTS_PATH: &str = "/home/jeremy/CLionProjects/ompas/craft-bots";
 const PROCESS_TOPIC_CRAFT_BOTS: &str = "__PROCESS_TOPIC_CRAFT_BOTS__";
@@ -123,8 +120,8 @@ impl PlatformDescriptor for PlatformCraftBots {
             InnerPlatformConfig::None => self.config.clone(),
         };
 
-        let f1 = File::create("craft-bots-out").expect("couldn't create file");
-        let f2 = File::create("craft-bots-err").expect("couldn't create file");
+        let f1 = File::create("craft-bots-out.txt").expect("couldn't create file");
+        let f2 = File::create("craft-bots-err.txt").expect("couldn't create file");
 
         let path = config
             .path
@@ -163,7 +160,9 @@ impl PlatformDescriptor for PlatformCraftBots {
     }
 
     async fn stop(&self) {
-        panic!("Not implemented yet")
+        self.log
+            .info("Process Craft-Bots killed via subscriptions of its different processes.")
+            .await;
     }
 
     async fn domain(&self) -> Domain {

@@ -97,6 +97,8 @@ TYPE_BUILDING = "building"
 TYPE_TASK = "task"
 TYPE_COMMAND = "command"
 
+objects = dict()
+
 
 def actor_label(actor_id: int) -> str:
     return TYPE_ACTOR+'_'+str(actor_id)
@@ -537,7 +539,7 @@ def mine_dynamic_facts(mine_id: int, mine: dict) -> list[StateVariable]:
         type=DYNAMIC,
         state_function=MINE_PROGRESS,
         parameters=[Atom(symbol = label)],
-        value = Expression(atom= Atom(int = mine['progress']))
+        value = Expression(atom= Atom(float = mine['progress']))
     ))
     return state_variables
 
@@ -580,7 +582,7 @@ def resource_dynamic_facts(resource_id: int, resource: dict) -> list[StateVariab
         type = DYNAMIC,
         state_function=RESOURCE_LOCATION,
         parameters=[Atom(symbol = label)],
-        value = Expression(atom = Atom(symbol = resource['location']))
+        value = Expression(atom = Atom(symbol = objects[resource['location']]))
     ))
 
     # tick at which of the resource was create
@@ -616,7 +618,7 @@ def site_static_facts(site_id: int, site: dict) -> list[StateVariable]:
         type = STATIC,
         state_function=SITE_NODE,
         parameters=[Atom(symbol = label)],
-        value = Expression(atom = Atom(int = node_label(site['node'])))
+        value = Expression(atom = Atom(symbol = node_label(site['node'])))
     ))
 
     needed_resources = []
@@ -641,7 +643,7 @@ def site_static_facts(site_id: int, site: dict) -> list[StateVariable]:
         type = STATIC,
         state_function=SITE_MAX_PROGRESS,
         parameters=[Atom(symbol = label)],
-        value = Expression(atom = Atom(int = site['max_progress'])))
+        value = Expression(atom = Atom(float = site['max_progress'])))
     )
 
     return state_variables
@@ -666,7 +668,7 @@ def site_dynamic_facts(site_id: int, site: dict) -> list[StateVariable]:
         type = DYNAMIC,
         state_function=SITE_PROGRESS,
         parameters=[Atom(symbol = label)],
-        value = Expression(atom = Atom(int = site['progress'])))
+        value = Expression(atom = Atom(float = site['progress'])))
     )
     return state_variables
 
@@ -908,6 +910,7 @@ def handle_incoming_commands(api: AgentAPI, request_iterator, command_responses:
                     function_id = function_id_from_str(command.atom.symbol)
                     if function_id == -1:
                         # the command name is no match with the available commands
+                        print(f'function {command.atom.symbol} not recognized.')
                         command_responses.push(CommandResponse(rejected=CommandRejected(command_id)))
                     else:
                         # if the command corresponds to an available command, then we can analyse the arguments and maybe execute it
@@ -938,7 +941,7 @@ def handle_incoming_commands(api: AgentAPI, request_iterator, command_responses:
                             case Command.DEPOSIT_RESOURCES:
                                 site_id = int(other[0].atom.symbol.removeprefix(TYPE_SITE+'_'))
                                 resource_id = int(other[1].atom.symbol.removeprefix(TYPE_RESOURCE+'_'))
-                                r = api.deposit_resources(actor_id, site_id)
+                                r = api.deposit_resources(actor_id, site_id, resource_id)
                             case Command.CANCEL_ACTION:
                                 r = api.cancel_action(actor_id)
                             case Command.START_LOOKING:
@@ -950,7 +953,7 @@ def handle_incoming_commands(api: AgentAPI, request_iterator, command_responses:
                                 r = api.start_receiving(actor_id)
                         if r == -1:
                             # command has not been accepted by API
-                            # print('rejected')
+                            print('Command rejected by API')
                             command_responses.push(CommandResponse(rejected=CommandRejected(command_id= command_id)))
                         else:
                             #command_responses.push(CommandResponse(accepted=CommandAccepted(command_id = command_id)))
@@ -989,6 +992,7 @@ def handle_current_commands(api: AgentAPI, command_responses: CommandResponseCol
                             case Command.ACTIVE:
                                 command_responses.push(CommandResponse(progress=CommandProgress(command_id = ompas_id, progress = command["progress"])))
                             case Command.REJECTED:
+                                print('Command rejected by API after initial')
                                 current_commands.remove(command_id)
                                 command_responses.push(CommandResponse(rejected=CommandRejected(command_id = ompas_id)))
                             case Command.PREEMPTING:
@@ -1058,6 +1062,7 @@ class CraftBotsServicer(platform_interfaceServicer):
                             # for new actors
                             if not list_actors.__contains__(actor_id):
                                 state.state_variables.extend(actor_static_facts(actor_id, actor))
+                                objects[actor_id] = actor_label(actor_id)
                                 yield PlatformUpdate(event = Event(instance=Instance(type=TYPE_ACTOR, object = actor_label(actor_id))))
                             state.state_variables.extend(actor_dynamic_facts(actor_id, actor))
 
@@ -1069,6 +1074,7 @@ class CraftBotsServicer(platform_interfaceServicer):
                             # for new nodes
                             if not list_nodes.__contains__(node_id):
                                 state.state_variables.extend(node_static_facts(node_id, node))
+                                objects[node_id] = node_label(node_id)
                                 yield PlatformUpdate(event = Event(instance=Instance(type=TYPE_NODE, object = node_label(node_id))))
                             state.state_variables.extend(node_dynamic_facts(node_id, node))
                             
@@ -1080,6 +1086,8 @@ class CraftBotsServicer(platform_interfaceServicer):
                             # for new edges
                             if not list_edges.__contains__(edge_id):
                                 state.state_variables.extend(edge_static_facts(edge_id, edge))
+                                objects[edge_id] = edge_label(edge_id)
+
                                 yield PlatformUpdate(event = Event(instance=Instance(type=TYPE_EDGE, object = edge_label(edge_id))))
                         
                         list_edges = edges_id
@@ -1090,6 +1098,7 @@ class CraftBotsServicer(platform_interfaceServicer):
                             # for new edges
                             if not list_mines.__contains__(mine_id):
                                 state.state_variables.extend(mine_static_facts(mine_id, mine))
+                                objects[mine_id] = mine_label(mine_id)
                                 yield PlatformUpdate(event = Event(instance=Instance(type=TYPE_MINE, object = mine_label(mine_id))))
                             state.state_variables.extend(mine_dynamic_facts(mine_id, mine))
                             
@@ -1101,6 +1110,7 @@ class CraftBotsServicer(platform_interfaceServicer):
                             # for new edges
                             if not list_resources.__contains__(resource_id):
                                 state.state_variables.extend(resource_static_facts(resource_id, resource))
+                                objects[resource_id] = resource_label(resource_id)
                                 yield PlatformUpdate(event = Event(instance=Instance(type=TYPE_RESOURCE, object = resource_label(resource_id))))
                             state.state_variables.extend(resource_dynamic_facts(resource_id, resource))
                             
@@ -1112,6 +1122,7 @@ class CraftBotsServicer(platform_interfaceServicer):
                             # for new edges
                             if not list_sites.__contains__(site_id):
                                 state.state_variables.extend(site_static_facts(site_id, site))
+                                objects[site_id] = site_label(site_id)
                                 yield PlatformUpdate(event = Event(instance=Instance(type=TYPE_SITE, object = site_label(site_id))))
                             state.state_variables.extend(site_dynamic_facts(site_id, site))
                             
@@ -1123,6 +1134,7 @@ class CraftBotsServicer(platform_interfaceServicer):
                             # for new edges
                             if not list_buildings.__contains__(building_id):
                                 state.state_variables.extend(building_static_facts(building_id, building))
+                                objects[building_id] = building_label(building_id)
                                 yield PlatformUpdate(event = Event(instance=Instance(type=TYPE_BUILDING, object = building_label(building_id))))
                             
                         list_buildings = buildings_id
@@ -1133,6 +1145,7 @@ class CraftBotsServicer(platform_interfaceServicer):
                             # for new edges
                             if not list_tasks.__contains__(task_id):
                                 state.state_variables.extend(task_static_facts(task_id, task))
+                                objects[task_id] = task_label(task_id)
                                 yield PlatformUpdate(event = Event(instance=Instance(type=TYPE_TASK, object = task_label(task_id))))
                             state.state_variables.extend(task_dynamic_facts(task_id, task))
 
@@ -1144,12 +1157,11 @@ class CraftBotsServicer(platform_interfaceServicer):
                             # for new edges
                             if not list_commands.__contains__(command_id):
                                 state.state_variables.extend(command_static_facts(command_id, command))
+                                objects[command_id] = command_label(command_id)
                                 yield PlatformUpdate(event = Event(instance=Instance(type=TYPE_COMMAND, object =command_label(command_id))))
                             state.state_variables.extend(command_dynamic_facts(command_id, command))
 
                         list_commands = commands_id
-
-
 
                         # Return the whole state
                         yield PlatformUpdate(state = state)
