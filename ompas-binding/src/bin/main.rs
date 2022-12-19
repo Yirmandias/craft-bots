@@ -3,13 +3,14 @@ use std::fs;
 use ompas_binding::{PlatformCraftBots, DEFAULT_CRAFT_BOTS_PATH};
 use ompas_middleware::logger::{FileDescriptor, LogClient};
 use ompas_middleware::{LogLevel, Master};
-use ompas_rae_core::monitor::CtxRaeUser;
-use ompas_rae_interface::platform::Domain;
-use ompas_rae_interface::{LOG_TOPIC_PLATFORM, PLATFORM_CLIENT};
-use sompas_modules::advanced_math::CtxMath;
-use sompas_modules::io::CtxIo;
-use sompas_modules::string::CtxString;
-use sompas_modules::utils::CtxUtils;
+use ompas_rae_core::monitor::ModMonitor;
+use ompas_rae_interface::lisp_domain::LispDomain;
+use ompas_rae_language::interface::{LOG_TOPIC_PLATFORM, PLATFORM_CLIENT};
+use ompas_rae_language::process::LOG_TOPIC_OMPAS;
+use sompas_modules::advanced_math::ModAdvancedMath;
+use sompas_modules::io::ModIO;
+use sompas_modules::string::ModString;
+use sompas_modules::utils::ModUtils;
 use sompas_repl::lisp_interpreter::{LispInterpreter, LispInterpreterConfig};
 use std::path::PathBuf;
 use structopt::StructOpt;
@@ -24,8 +25,8 @@ struct Opt {
     debug: bool,
     #[structopt(short = "p", long = "log-path")]
     log: Option<PathBuf>,
-    #[structopt(short = "r", long = "rae-log")]
-    rae_log: bool,
+    #[structopt(short = "r", long = "ompas-log")]
+    ompas_log: bool,
 }
 
 #[tokio::main]
@@ -39,16 +40,16 @@ async fn main() {
         Master::set_log_level(LogLevel::Trace).await;
     }
     //test_lib_model(&opt);
-    lisp_interpreter(opt.log, opt.rae_log).await;
+    lisp_interpreter(opt.log, opt.ompas_log).await;
 }
 
-pub async fn lisp_interpreter(log: Option<PathBuf>, _: bool) {
+pub async fn lisp_interpreter(log: Option<PathBuf>, ompas_log: bool) {
     let mut li = LispInterpreter::new().await;
 
-    let mut ctx_io = CtxIo::default();
-    let ctx_math = CtxMath::default();
-    let ctx_utils = CtxUtils::default();
-    let ctx_string = CtxString::default();
+    let mut ctx_io = ModIO::default();
+    let ctx_math = ModAdvancedMath::default();
+    let ctx_utils = ModUtils::default();
+    let ctx_string = ModString::default();
 
     //Insert the doc for the different contexts.
 
@@ -62,9 +63,9 @@ pub async fn lisp_interpreter(log: Option<PathBuf>, _: bool) {
     li.import_namespace(ctx_math);
     li.import(ctx_string);
 
-    let ctx_rae = CtxRaeUser::new(
+    let ctx_rae = ModMonitor::new(
         PlatformCraftBots::new(
-            Domain::File(
+            LispDomain::File(
                 "/home/jeremy/CLionProjects/ompas/craft-bots/ompas-binding/domain/domain.lisp"
                     .into(),
             ),
@@ -73,9 +74,13 @@ pub async fn lisp_interpreter(log: Option<PathBuf>, _: bool) {
         )
         .await,
         log.clone(),
-        true,
     )
     .await;
+
+    if ompas_log {
+        Master::start_display_log_topic(LOG_TOPIC_OMPAS).await;
+    }
+
     li.import_namespace(ctx_rae);
 
     li.set_config(LispInterpreterConfig::new(true));

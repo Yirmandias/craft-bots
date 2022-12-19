@@ -1,23 +1,21 @@
 use async_trait::async_trait;
 use ompas_middleware::logger::LogClient;
 use ompas_middleware::{Master, ProcessInterface};
-use ompas_rae_core::contexts::ctx_state::{CtxState, CTX_STATE};
-use ompas_rae_interface::platform::{
-    Domain, InnerPlatformConfig, PlatformConfig, PlatformDescriptor, PlatformModule,
-};
-use ompas_rae_interface::{
+use ompas_rae_core::exec::state::ModState;
+use ompas_rae_interface::lisp_domain::LispDomain;
+use ompas_rae_interface::platform_config::{InnerPlatformConfig, PlatformConfig};
+use ompas_rae_interface::PlatformDescriptor;
+use ompas_rae_language::exec::state::MOD_STATE;
+use ompas_rae_language::interface::{
     DEFAULT_PLATFORM_SERVICE_IP, DEFAULT_PLATFROM_SERVICE_PORT, LOG_TOPIC_PLATFORM,
     PROCESS_TOPIC_PLATFORM,
 };
 use ompas_rae_structs::state::world_state::WorldStateSnapshot;
 use sompas_macros::async_scheme_fn;
-use sompas_structs::contextcollection::Context;
-use sompas_structs::documentation::Documentation;
 use sompas_structs::lenv::LEnv;
+use sompas_structs::lmodule::LModule;
 use sompas_structs::lruntimeerror::LRuntimeError;
 use sompas_structs::lvalues::LValueS;
-use sompas_structs::module::{IntoModule, Module};
-use sompas_structs::purefonction::PureFonctionCollection;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::fs::File;
@@ -62,7 +60,7 @@ impl From<String> for CraftBotsConfig {
 
 pub struct PlatformCraftBots {
     pub service_info: SocketAddr,
-    pub domain: Domain,
+    pub domain: LispDomain,
     pub config: CraftBotsConfig,
     pub log: LogClient,
 }
@@ -76,7 +74,7 @@ impl Default for PlatformCraftBots {
             )
             .parse()
             .unwrap(),
-            domain: Domain::default(),
+            domain: LispDomain::default(),
             config: CraftBotsConfig {
                 path: DEFAULT_CRAFT_BOTS_PATH.into(),
             },
@@ -86,7 +84,7 @@ impl Default for PlatformCraftBots {
 }
 
 impl PlatformCraftBots {
-    pub async fn new(domain: Domain, log: LogClient, path: PathBuf) -> Self {
+    pub async fn new(domain: LispDomain, log: LogClient, path: PathBuf) -> Self {
         Master::set_child_process(PROCESS_TOPIC_PLATFORM, PROCESS_TOPIC_CRAFT_BOTS).await;
         Master::set_child_process(PROCESS_TOPIC_CRAFT_BOTS, PROCESS_TOPIC_PLATFORM).await;
         PlatformCraftBots {
@@ -135,10 +133,10 @@ impl PlatformDescriptor for PlatformCraftBots {
 
         let mut child = Command::new("python3")
             .current_dir(path)
-            .args(&["main.py"])
+            .args(["main.py"])
             .stdin(Stdio::null())
-            //.stdout(unsafe { Stdio::from_raw_fd(f1.into_raw_fd()) })
-            //.stderr(unsafe { Stdio::from_raw_fd(f2.into_raw_fd()) })
+            .stdout(unsafe { Stdio::from_raw_fd(f1.into_raw_fd()) })
+            .stderr(unsafe { Stdio::from_raw_fd(f2.into_raw_fd()) })
             .spawn()
             .expect("failed to execute process");
 
@@ -165,16 +163,16 @@ impl PlatformDescriptor for PlatformCraftBots {
             .await;
     }
 
-    async fn domain(&self) -> Domain {
+    async fn domain(&self) -> LispDomain {
         self.domain.clone()
     }
 
-    async fn module(&self) -> Option<PlatformModule> {
-        Some(PlatformModule::new(CraftBotsModule::default()))
+    async fn module(&self) -> Option<LModule> {
+        Some(CraftBotsModule::default().into())
     }
 
     async fn socket(&self) -> SocketAddr {
-        self.service_info.clone()
+        self.service_info
     }
 }
 
@@ -329,7 +327,7 @@ impl CraftBotsModule {
                 for node in &queue {
                     match mini {
                         None => {
-                            mini = distances[*node].clone();
+                            mini = distances[*node];
                             top = Some(*node);
                         }
                         Some(v) => {
@@ -347,8 +345,8 @@ impl CraftBotsModule {
             queue.remove(&s1);
             for s2 in &neighbours[s1] {
                 //MAJ DISTANCE
-                let distance_s1 = distances[s1].clone();
-                let distance_s2 = distances[*s2].clone();
+                let distance_s1 = distances[s1];
+                let distance_s2 = distances[*s2];
                 let weight = weights[s1][*s2].unwrap();
 
                 match (distance_s2, distance_s1) {
@@ -390,7 +388,7 @@ pub async fn find_route(
     node_b: Node,
 ) -> Result<Vec<Node>, LRuntimeError> {
     let ctx = env.get_context::<CraftBotsModule>(CRAFT_BOTS_MOD)?;
-    let ctx_state = env.get_context::<CtxState>(CTX_STATE)?;
+    let ctx_state = env.get_context::<ModState>(MOD_STATE)?;
 
     ctx.update_graph(ctx_state.state.get_snapshot().await).await;
 
@@ -400,23 +398,10 @@ pub async fn find_route(
 pub const CRAFT_BOTS_MOD: &str = "craft-bots-mod";
 pub const FIND_ROUTE: &str = "find_route";
 
-impl IntoModule for CraftBotsModule {
-    fn into_module(self) -> Module {
-        let mut module = Module {
-            ctx: Context::new(self),
-            prelude: vec![],
-            raw_lisp: Default::default(),
-            label: CRAFT_BOTS_MOD.to_string(),
-        };
-        module.add_async_fn_prelude(FIND_ROUTE, find_route);
+impl From<CraftBotsModule> for LModule {
+    fn from(m: CraftBotsModule) -> Self {
+        let mut module = LModule::new(m, "cbm", "");
+        module.add_async_fn(FIND_ROUTE, find_route, "", false);
         module
-    }
-
-    fn documentation(&self) -> Documentation {
-        Default::default()
-    }
-
-    fn pure_fonctions(&self) -> PureFonctionCollection {
-        Default::default()
     }
 }
