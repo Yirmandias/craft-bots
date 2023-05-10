@@ -1,12 +1,13 @@
 use std::fs;
 //use ompas_gobotsim::mod_godot::CtxGodot;
-use ompas_binding::{PlatformCraftBots, DEFAULT_CRAFT_BOTS_PATH};
 use ompas_middleware::logger::{FileDescriptor, LogClient};
 use ompas_middleware::{LogLevel, Master};
-use ompas_rae_core::monitor::ModMonitor;
-use ompas_rae_interface::lisp_domain::LispDomain;
-use ompas_rae_language::interface::{LOG_TOPIC_PLATFORM, PLATFORM_CLIENT};
-use ompas_rae_language::process::LOG_TOPIC_OMPAS;
+
+use ompas_core::ompas::scheme::exec::platform::lisp_domain::LispDomain;
+use ompas_core::ompas::scheme::monitor::ModMonitor;
+use ompas_craft_bots::{PlatformCraftBots, DEFAULT_CRAFT_BOTS_PATH};
+use ompas_language::interface::{LOG_TOPIC_PLATFORM, PLATFORM_CLIENT};
+use ompas_language::process::LOG_TOPIC_OMPAS;
 use sompas_modules::advanced_math::ModAdvancedMath;
 use sompas_modules::io::ModIO;
 use sompas_modules::string::ModString;

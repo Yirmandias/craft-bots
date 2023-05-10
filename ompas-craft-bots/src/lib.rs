@@ -1,16 +1,18 @@
 use async_trait::async_trait;
-use ompas_middleware::logger::LogClient;
-use ompas_middleware::{Master, ProcessInterface};
-use ompas_rae_core::exec::state::ModState;
-use ompas_rae_interface::lisp_domain::LispDomain;
-use ompas_rae_interface::platform_config::{InnerPlatformConfig, PlatformConfig};
-use ompas_rae_interface::PlatformDescriptor;
-use ompas_rae_language::exec::state::MOD_STATE;
-use ompas_rae_language::interface::{
+use ompas_core::ompas::manager::state::world_state::WorldStateSnapshot;
+use ompas_core::ompas::scheme::exec::platform::lisp_domain::LispDomain;
+use ompas_core::ompas::scheme::exec::platform::platform_config::{
+    InnerPlatformConfig, PlatformConfig,
+};
+use ompas_core::ompas::scheme::exec::platform::PlatformDescriptor;
+use ompas_core::ompas::scheme::exec::state::ModState;
+use ompas_language::exec::state::MOD_STATE;
+use ompas_language::interface::{
     DEFAULT_PLATFORM_SERVICE_IP, DEFAULT_PLATFROM_SERVICE_PORT, LOG_TOPIC_PLATFORM,
     PROCESS_TOPIC_PLATFORM,
 };
-use ompas_rae_structs::state::world_state::WorldStateSnapshot;
+use ompas_middleware::logger::LogClient;
+use ompas_middleware::{Master, ProcessInterface};
 use sompas_macros::async_scheme_fn;
 use sompas_structs::lenv::LEnv;
 use sompas_structs::lmodule::LModule;
@@ -235,16 +237,22 @@ impl CraftBotsModule {
     /// Update the graph in function of the context
     /// Used just before calling dijkstra
     async fn update_graph(&self, world_state: WorldStateSnapshot) {
-        let edges: Vec<String> = world_state.instance.get_instances("edge").await;
+        let edges: Vec<String> = world_state.instance.get_instances("edge");
         for edge in edges {
             let edge: LValueS = edge.into();
 
             let key_node_a: Vec<LValueS> = vec!["edge.node_a".into(), edge.clone()];
-            let node_a = world_state._static.get(&LValueS::from(key_node_a)).unwrap();
+            let node_a = world_state
+                .r#static
+                .get(&LValueS::from(key_node_a))
+                .unwrap();
             let key_node_b: Vec<LValueS> = vec!["edge.node_b".into(), edge.clone()];
-            let node_b = world_state._static.get(&LValueS::from(key_node_b)).unwrap();
+            let node_b = world_state
+                .r#static
+                .get(&LValueS::from(key_node_b))
+                .unwrap();
             let weight: i64 = world_state
-                ._static
+                .r#static
                 .get(&LValueS::from(vec![LValueS::from("edge.length"), edge]))
                 .unwrap()
                 .try_into()
