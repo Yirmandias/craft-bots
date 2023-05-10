@@ -1,5 +1,5 @@
 [package]
-name = "ompas-binding"
+name = "ompas-craft-bots"
 version = "0.1.0"
 edition = "2021"
 
@@ -14,10 +14,8 @@ sompas-repl = {path = "../../scheme/repl"}
 # ompas-utils = {path = "../utils"}
 sompas-language= {path = "../../scheme/language"}
 sompas-macros = {path = "../../scheme/macros"}
-ompas-rae-core = {path = "../../rae/core"}
-ompas-rae-structs = {path = "../../rae/structs"}
-ompas-rae-interface = {path = "../../rae/interface"}
-ompas-rae-language = {path = "../../rae/language"}
+ompas-core = {path = "../../acting/core"}
+ompas-language = {path = "../../acting/language"}
 # aries_planning = {path = "../aries/planning"}
 im = "15.0.0"
 structopt = { version = "0.3", default-features = false }
@@ -29,5 +27,5 @@ tokio-stream = { default-features = false, version = "0.1" }
 map-macro = "0.2.4"
 
 [[bin]]
-name = "craft-bots-ompas"
+name = "ompas-craft-bots"
 path = "src/bin/main.rs"
