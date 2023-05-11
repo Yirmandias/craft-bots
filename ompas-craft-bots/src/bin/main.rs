@@ -5,7 +5,8 @@ use ompas_middleware::{LogLevel, Master};
 
 use ompas_core::ompas::scheme::exec::platform::lisp_domain::LispDomain;
 use ompas_core::ompas::scheme::monitor::ModMonitor;
-use ompas_craft_bots::{PlatformCraftBots, DEFAULT_CRAFT_BOTS_PATH};
+use ompas_core::{OMPAS_DEBUG_ON, OMPAS_LOG_ON};
+use ompas_craft_bots::{craft_bots_path, PlatformCraftBots};
 use ompas_language::interface::{LOG_TOPIC_PLATFORM, PLATFORM_CLIENT};
 use ompas_language::process::LOG_TOPIC_OMPAS;
 use sompas_modules::advanced_math::ModAdvancedMath;
@@ -22,12 +23,11 @@ const LOG_LEVEL: LogLevel = LogLevel::Debug;
 #[derive(Debug, StructOpt)]
 #[structopt(name = "OMPAS", about = "An acting engine based on RAE.")]
 struct Opt {
-    #[structopt(short = "d", long = "debug")]
-    debug: bool,
     #[structopt(short = "p", long = "log-path")]
     log: Option<PathBuf>,
-    #[structopt(short = "r", long = "ompas-log")]
-    ompas_log: bool,
+
+    #[structopt(short = "d, long: Domain")]
+    domain: PathBuf,
 }
 
 #[tokio::main]
@@ -37,14 +37,14 @@ async fn main() {
     let opt: Opt = Opt::from_args();
     println!("{:?}", opt);
     Master::set_log_level(LOG_LEVEL).await;
-    if opt.debug {
+    if OMPAS_DEBUG_ON.get() {
         Master::set_log_level(LogLevel::Trace).await;
     }
     //test_lib_model(&opt);
-    lisp_interpreter(opt.log, opt.ompas_log).await;
+    lisp_interpreter(&opt).await;
 }
 
-pub async fn lisp_interpreter(log: Option<PathBuf>, ompas_log: bool) {
+async fn lisp_interpreter(opt: &Opt) {
     let mut li = LispInterpreter::new().await;
 
     let mut ctx_io = ModIO::default();
@@ -55,7 +55,7 @@ pub async fn lisp_interpreter(log: Option<PathBuf>, ompas_log: bool) {
     //Insert the doc for the different contexts.
 
     //Add the sender of the channel.
-    if let Some(pb) = &log {
+    if let Some(pb) = &opt.log {
         ctx_io.set_log_output(pb.clone().into());
     }
 
@@ -66,19 +66,16 @@ pub async fn lisp_interpreter(log: Option<PathBuf>, ompas_log: bool) {
 
     let ctx_rae = ModMonitor::new(
         PlatformCraftBots::new(
-            LispDomain::File(
-                "/home/jeremy/CLionProjects/ompas/craft-bots/ompas-binding/domain/domain.lisp"
-                    .into(),
-            ),
+            LispDomain::File(opt.domain.clone()),
             LogClient::new(PLATFORM_CLIENT, LOG_TOPIC_PLATFORM).await,
-            DEFAULT_CRAFT_BOTS_PATH.parse().unwrap(),
+            craft_bots_path().parse().unwrap(),
         )
         .await,
-        log.clone(),
+        opt.log.clone(),
     )
     .await;
 
-    if ompas_log {
+    if OMPAS_LOG_ON.get() {
         Master::start_display_log_topic(LOG_TOPIC_OMPAS).await;
     }
 
@@ -86,7 +83,11 @@ pub async fn lisp_interpreter(log: Option<PathBuf>, ompas_log: bool) {
 
     li.set_config(LispInterpreterConfig::new(true));
 
-    li.run(log.map(|p| FileDescriptor::AbsolutePath(fs::canonicalize(p).unwrap())))
-        .await;
-    Master::end().await;
+    li.run(
+        opt.log
+            .as_ref()
+            .map(|p| FileDescriptor::AbsolutePath(fs::canonicalize(p).unwrap())),
+    )
+    .await;
+    Master::wait_end().await;
 }

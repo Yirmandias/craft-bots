@@ -6,6 +6,7 @@ use ompas_core::ompas::scheme::exec::platform::platform_config::{
 };
 use ompas_core::ompas::scheme::exec::platform::PlatformDescriptor;
 use ompas_core::ompas::scheme::exec::state::ModState;
+use ompas_core::ompas_path;
 use ompas_language::exec::state::MOD_STATE;
 use ompas_language::interface::{
     DEFAULT_PLATFORM_SERVICE_IP, DEFAULT_PLATFROM_SERVICE_PORT, LOG_TOPIC_PLATFORM,
@@ -19,6 +20,7 @@ use sompas_structs::lmodule::LModule;
 use sompas_structs::lruntimeerror::LRuntimeError;
 use sompas_structs::lvalues::LValueS;
 use std::collections::{HashMap, HashSet};
+use std::env;
 use std::fmt::{Display, Formatter};
 use std::fs::File;
 use std::net::SocketAddr;
@@ -31,9 +33,17 @@ use tokio::sync::RwLock;
 use tokio::time::sleep;
 
 //const TOKIO_CHANNEL_SIZE: usize = 100;
+const CRAFT_BOTS_PATH: &str = "CRAFT_BOTS_PATH";
 const PROCESS_CRAFT_BOTS: &str = "__PROCESS_CRAFT_BOTS_SIM__";
-pub const DEFAULT_CRAFT_BOTS_PATH: &str = "/home/jeremy/CLionProjects/ompas/craft-bots";
 const PROCESS_TOPIC_CRAFT_BOTS: &str = "__PROCESS_TOPIC_CRAFT_BOTS__";
+
+pub fn craft_bots_path() -> String {
+    if let Ok(s) = env::var(CRAFT_BOTS_PATH) {
+        s
+    } else {
+        format!("{}/craft-bots", ompas_path())
+    }
+}
 
 #[derive(Clone)]
 pub struct CraftBotsConfig {
@@ -49,7 +59,7 @@ impl Display for CraftBotsConfig {
 impl From<String> for CraftBotsConfig {
     fn from(s: String) -> Self {
         let mut args = s.split_whitespace();
-        let mut path: PathBuf = DEFAULT_CRAFT_BOTS_PATH.parse().unwrap();
+        let mut path: PathBuf = craft_bots_path().into();
         while let Some(arg) = args.next() {
             if arg == "--path" {
                 path = args.next().unwrap().parse().unwrap();
@@ -78,7 +88,7 @@ impl Default for PlatformCraftBots {
             .unwrap(),
             domain: LispDomain::default(),
             config: CraftBotsConfig {
-                path: DEFAULT_CRAFT_BOTS_PATH.into(),
+                path: craft_bots_path().into(),
             },
             log: Default::default(),
         }
@@ -86,6 +96,9 @@ impl Default for PlatformCraftBots {
 }
 
 impl PlatformCraftBots {
+    /// domain: LispDomain loaded in ompas
+    /// log: a LogClient to log OMPAS and the platforms logs
+    /// path: Path to the craft-bots platform
     pub async fn new(domain: LispDomain, log: LogClient, path: PathBuf) -> Self {
         Master::set_child_process(PROCESS_TOPIC_PLATFORM, PROCESS_TOPIC_CRAFT_BOTS).await;
         Master::set_child_process(PROCESS_TOPIC_CRAFT_BOTS, PROCESS_TOPIC_PLATFORM).await;
