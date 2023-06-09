@@ -1,19 +1,16 @@
 use async_trait::async_trait;
-use ompas_core::ompas::manager::state::world_state::WorldStateSnapshot;
-use ompas_core::ompas::scheme::exec::platform::lisp_domain::LispDomain;
-use ompas_core::ompas::scheme::exec::platform::platform_config::{
-    InnerPlatformConfig, PlatformConfig,
-};
-use ompas_core::ompas::scheme::exec::platform::PlatformDescriptor;
+use ompas_core::ompas::manager::platform::lisp_domain::LispDomain;
+use ompas_core::ompas::manager::platform::platform_config::{InnerPlatformConfig, PlatformConfig};
+use ompas_core::ompas::manager::platform::PlatformDescriptor;
+use ompas_core::ompas::manager::state::state_manager::WorldStateSnapshot;
 use ompas_core::ompas::scheme::exec::state::ModState;
 use ompas_core::ompas_path;
 use ompas_language::exec::state::MOD_STATE;
 use ompas_language::interface::{
     DEFAULT_PLATFORM_SERVICE_IP, DEFAULT_PLATFROM_SERVICE_PORT, LOG_TOPIC_PLATFORM,
-    PROCESS_TOPIC_PLATFORM,
 };
 use ompas_middleware::logger::LogClient;
-use ompas_middleware::{Master, ProcessInterface};
+use ompas_middleware::ProcessInterface;
 use sompas_macros::async_scheme_fn;
 use sompas_structs::lenv::LEnv;
 use sompas_structs::lmodule::LModule;
@@ -100,8 +97,6 @@ impl PlatformCraftBots {
     /// log: a LogClient to log OMPAS and the platforms logs
     /// path: Path to the craft-bots platform
     pub async fn new(domain: LispDomain, log: LogClient, path: PathBuf) -> Self {
-        Master::set_child_process(PROCESS_TOPIC_PLATFORM, PROCESS_TOPIC_CRAFT_BOTS).await;
-        Master::set_child_process(PROCESS_TOPIC_CRAFT_BOTS, PROCESS_TOPIC_PLATFORM).await;
         PlatformCraftBots {
             service_info: format!(
                 "{}:{}",
