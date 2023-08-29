@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use ompas_core::ompas::manager::platform::lisp_domain::LispDomain;
 use ompas_core::ompas::manager::platform::platform_config::{InnerPlatformConfig, PlatformConfig};
 use ompas_core::ompas::manager::platform::PlatformDescriptor;
-use ompas_core::ompas::manager::state::state_manager::WorldStateSnapshot;
+use ompas_core::ompas::manager::state::world_state_snapshot::WorldStateSnapshot;
 use ompas_core::ompas::scheme::exec::state::ModState;
 use ompas_core::ompas_path;
 use ompas_language::exec::state::MOD_STATE;
