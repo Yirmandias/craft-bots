@@ -164,13 +164,12 @@ impl PlatformDescriptor for PlatformCraftBots {
         });
         sleep(Duration::from_millis(1000)).await;
 
-        self.log.info("Successfully started platform.").await;
+        self.log.info("Successfully started platform.");
     }
 
     async fn stop(&self) {
         self.log
-            .info("Process Craft-Bots killed via subscriptions of its different processes.")
-            .await;
+            .info("Process Craft-Bots killed via subscriptions of its different processes.");
     }
 
     async fn domain(&self) -> LispDomain {
@@ -259,13 +258,14 @@ impl CraftBotsModule {
                 .r#static
                 .get(&LValueS::from(key_node_b))
                 .unwrap();
-            let weight: i64 = world_state
+            let weight: i64 = (&world_state
                 .r#static
                 .get(&LValueS::from(vec![LValueS::from("edge.length"), edge]))
                 .unwrap()
+                .value)
                 .try_into()
                 .unwrap();
-            self.add_new_edge(node_a.to_string(), node_b.to_string(), weight)
+            self.add_new_edge(node_a.value.to_string(), node_b.value.to_string(), weight)
                 .await;
         }
     }
