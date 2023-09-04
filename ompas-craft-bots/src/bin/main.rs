@@ -2,7 +2,7 @@ use std::fs;
 //use ompas_gobotsim::mod_godot::CtxGodot;
 use ompas_core::ompas::manager::platform::lisp_domain::LispDomain;
 use ompas_core::ompas::scheme::monitor::ModMonitor;
-use ompas_core::{OMPAS_DEBUG_ON, OMPAS_LOG_ON};
+use ompas_core::{OMPAS_DEBUG, OMPAS_LOG};
 use ompas_craft_bots::{craft_bots_path, PlatformCraftBots};
 use ompas_language::interface::{LOG_TOPIC_PLATFORM, PLATFORM_CLIENT};
 use ompas_language::process::LOG_TOPIC_OMPAS;
@@ -36,7 +36,7 @@ async fn main() {
     let opt: Opt = Opt::from_args();
     println!("{:?}", opt);
     Master::set_log_level(LOG_LEVEL).await;
-    if OMPAS_DEBUG_ON.get() {
+    if OMPAS_DEBUG.get() {
         Master::set_log_level(LogLevel::Trace).await;
     }
     //test_lib_model(&opt);
@@ -74,7 +74,7 @@ async fn lisp_interpreter(opt: &Opt) {
     )
     .await;
 
-    if OMPAS_LOG_ON.get() {
+    if OMPAS_LOG.get() {
         Master::start_display_log_topic(LOG_TOPIC_OMPAS).await;
     }
 

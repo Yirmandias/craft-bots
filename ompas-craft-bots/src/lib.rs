@@ -4,7 +4,7 @@ use ompas_core::ompas::manager::platform::platform_config::{InnerPlatformConfig,
 use ompas_core::ompas::manager::platform::PlatformDescriptor;
 use ompas_core::ompas::manager::state::world_state_snapshot::WorldStateSnapshot;
 use ompas_core::ompas::scheme::exec::state::ModState;
-use ompas_core::ompas_path;
+use ompas_core::OMPAS_PATH;
 use ompas_language::exec::state::MOD_STATE;
 use ompas_language::interface::{
     DEFAULT_PLATFORM_SERVICE_IP, DEFAULT_PLATFROM_SERVICE_PORT, LOG_TOPIC_PLATFORM,
@@ -38,7 +38,7 @@ pub fn craft_bots_path() -> String {
     if let Ok(s) = env::var(CRAFT_BOTS_PATH) {
         s
     } else {
-        format!("{}/craft-bots", ompas_path())
+        format!("{}/craft-bots", OMPAS_PATH.get_ref())
     }
 }
 
