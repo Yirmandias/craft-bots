@@ -17,14 +17,14 @@ sompas-macros = {path = "../../scheme/macros"}
 ompas-core = {path = "../../acting/core"}
 ompas-language = {path = "../../acting/language"}
 # aries_planning = {path = "../aries/planning"}
-im = "15.0.0"
-structopt = { version = "0.3", default-features = false }
-tokio = { version = "1.17.0", features = ["full", "time"] }
-async-trait = "0.1.51"
-macro_rules_attribute = "0.0.2"
-tonic = "0.8"
-tokio-stream = { default-features = false, version = "0.1" }
-map-macro = "0.2.4"
+im = {workspace = true}
+structopt = {workspace= true}
+tokio = {workspace =true }
+async-trait = {workspace = true}
+macro_rules_attribute = {workspace = true}
+tonic = {workspace = true}
+tokio-stream = { workspace = true }
+map-macro = {workspace =true}
 
 [[bin]]
 name = "ompas-craft-bots"
