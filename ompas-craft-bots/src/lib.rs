@@ -243,7 +243,7 @@ impl CraftBotsModule {
     }
     /// Update the graph in function of the context
     /// Used just before calling dijkstra
-    async fn update_graph(&self, world_state: WorldStateSnapshot) {
+    async fn update_graph(&self, mut world_state: WorldStateSnapshot) {
         let edges: Vec<String> = world_state.instance.get_instances("edge");
         for edge in edges {
             let edge: LValueS = edge.into();
