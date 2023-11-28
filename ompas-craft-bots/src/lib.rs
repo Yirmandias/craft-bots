@@ -406,7 +406,8 @@ pub async fn find_route(
     let ctx = env.get_context::<CraftBotsModule>(CRAFT_BOTS_MOD)?;
     let ctx_state = env.get_context::<ModState>(MOD_STATE)?;
 
-    ctx.update_graph(ctx_state.state.get_snapshot().await).await;
+    ctx.update_graph(ctx_state.state_manager.get_snapshot().await)
+        .await;
 
     Ok(ctx.dijkstra(node_a, node_b).await)
 }

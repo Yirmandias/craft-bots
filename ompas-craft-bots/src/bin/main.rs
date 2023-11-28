@@ -14,7 +14,7 @@ use std::path::PathBuf;
 use structopt::StructOpt;
 
 pub const TOKIO_CHANNEL_SIZE: usize = 100;
-const LOG_LEVEL: LogLevel = LogLevel::Debug;
+const LOG_LEVEL: LogLevel = LogLevel::Info;
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "OMPAS", about = "An acting engine based on RAE.")]
