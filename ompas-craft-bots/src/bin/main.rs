@@ -1,6 +1,6 @@
 use std::fs;
 //use ompas_gobotsim::mod_godot::CtxGodot;
-use ompas_core::ompas::manager::platform::lisp_domain::LispDomain;
+use ompas_core::ompas::manager::platform::scheme_domain::SchemeDomain;
 use ompas_core::ompas::scheme::monitor::ModMonitor;
 use ompas_core::{OMPAS_DEBUG, OMPAS_LOG};
 use ompas_craft_bots::{craft_bots_path, PlatformCraftBots};
@@ -56,7 +56,7 @@ async fn lisp_interpreter(opt: &Opt) {
 
     let ctx_rae = ModMonitor::new(
         PlatformCraftBots::new(
-            LispDomain::File(opt.domain.clone()),
+            SchemeDomain::File(opt.domain.clone()),
             LogClient::new(PLATFORM_CLIENT, LOG_TOPIC_PLATFORM).await,
             craft_bots_path().parse().unwrap(),
         )

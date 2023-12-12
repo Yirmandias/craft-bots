@@ -1,6 +1,6 @@
 use async_trait::async_trait;
-use ompas_core::ompas::manager::platform::lisp_domain::LispDomain;
 use ompas_core::ompas::manager::platform::platform_config::{InnerPlatformConfig, PlatformConfig};
+use ompas_core::ompas::manager::platform::scheme_domain::SchemeDomain;
 use ompas_core::ompas::manager::platform::PlatformDescriptor;
 use ompas_core::ompas::manager::state::world_state_snapshot::WorldStateSnapshot;
 use ompas_core::ompas::scheme::exec::state::ModState;
@@ -69,7 +69,7 @@ impl From<String> for CraftBotsConfig {
 
 pub struct PlatformCraftBots {
     pub service_info: SocketAddr,
-    pub domain: LispDomain,
+    pub domain: SchemeDomain,
     pub config: CraftBotsConfig,
     pub log: LogClient,
 }
@@ -83,7 +83,7 @@ impl Default for PlatformCraftBots {
             )
             .parse()
             .unwrap(),
-            domain: LispDomain::default(),
+            domain: SchemeDomain::default(),
             config: CraftBotsConfig {
                 path: craft_bots_path().into(),
             },
@@ -96,7 +96,7 @@ impl PlatformCraftBots {
     /// domain: LispDomain loaded in ompas
     /// log: a LogClient to log OMPAS and the platforms logs
     /// path: Path to the craft-bots platform
-    pub async fn new(domain: LispDomain, log: LogClient, path: PathBuf) -> Self {
+    pub async fn new(domain: SchemeDomain, log: LogClient, path: PathBuf) -> Self {
         PlatformCraftBots {
             service_info: format!(
                 "{}:{}",
@@ -172,7 +172,7 @@ impl PlatformDescriptor for PlatformCraftBots {
             .info("Process Craft-Bots killed via subscriptions of its different processes.");
     }
 
-    async fn domain(&self) -> LispDomain {
+    async fn domain(&self) -> SchemeDomain {
         self.domain.clone()
     }
 
